@@ -3,10 +3,22 @@
 ///////////////////////////
 
 #include <stdio.h>
+#include <unistd.h>
+#include "server.h"
 
-int main()
+int main(int args, char** argv)
 {
-	printf("Hello World\n");
+	int i;
+
+	for (i = 0; i < args; ++i)
+	{
+		printf("%s\n", argv[i]);
+	}
+
+
+
+
+	getopt(0, NULL, NULL);
 
 	return 0;
 }
