@@ -4,8 +4,8 @@ EXE = bin/server
 OBJ = obj/main.o \
 		obj/server.o \
 
-OPTIONS = -Wall
-DEBUG = -g
+OPTIONS = -g -Wall
+#DEBUG = -g
 
 # OBJ RULES #
 obj/main.o : src/main.c
