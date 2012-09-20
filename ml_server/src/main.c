@@ -26,7 +26,8 @@ int main(int argc, char** argv)
 	{
 		printf("usage: %s [-p port] [-r root_directory]\n", argv[0]);
 		printf("  [-p port] : valid (1-65535) port on which to listen (default is 51115)\n");
-		printf("  [-r root_directory] : directory to serve (default is ./)\n\n");
+		printf("  [-r root_directory] : directory to serve (default is ./)\n");
+		printf("\n");
 		return -1;
 	}
 
@@ -34,13 +35,15 @@ int main(int argc, char** argv)
 	error = ml_server(port, root);
 	switch(error)
 	{
-		case -1:
-			printf("Server failed unexpectedly\n");
+		case 0:
+			printf("TERMINATING Server\n");
 			break;
+		case -1:
 		default:
-			printf("Terminating Server\n");
+			printf("Server FAILED unexpectedly\n");
 	}
 
+	printf("\n");
 	return 0;
 }
 

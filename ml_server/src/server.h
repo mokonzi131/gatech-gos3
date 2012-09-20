@@ -5,6 +5,8 @@
 #ifndef ML_SERVER
 #define ML_SERVER
 
-int ml_server(unsigned short int, char*);
+extern const unsigned short int ml_DEFAULT_PORT_NUMBER;
+
+int ml_server(const unsigned short int, const char*);
 
 #endif
