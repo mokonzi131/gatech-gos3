@@ -16,7 +16,7 @@ static int initialize();
 static int run();
 
 /* PUBLIC INTERFACE */
-int server(unsigned short int _port, char* _root)
+int ml_server(unsigned short int _port, char* _root)
 {
 	printf("port: %d\n", _port);
 	printf("root: %s\n", _root);

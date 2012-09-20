@@ -5,6 +5,6 @@
 #ifndef ML_SERVER
 #define ML_SERVER
 
-int server(unsigned short int, char*);
+int ml_server(unsigned short int, char*);
 
 #endif
