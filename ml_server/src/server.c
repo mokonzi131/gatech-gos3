@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 
 #define SOCKET_ERROR    -1
 #define BACKLOG			5
@@ -99,65 +100,47 @@ static int initialize(unsigned short int port, const char* root)
 	printf("  server_ip = %s\n", inet_ntoa(ServerAddress.sin_addr));
 	printf("  port      = %d\n", ntohs(ServerAddress.sin_port));
 	printf("  directory = %s\n", rootDirectory);
+	printf("\n");
 
 	return 0;
 }
 
 #define BUFFER_SIZE         100
-#define MESSAGE             "This is the message I'm sending back and forth"
+#define MESSAGE             "HTTP/1.0 404 Not Found\r\n\r\n"
 static int run(void)
 {
 	int hSocket;
 	static struct sockaddr_in ClientAddress;
 	int nAddressSize = sizeof(struct sockaddr_in);
+	char pBuffer[BUFFER_SIZE];
 
 	//struct hostent* pHostInfo; // Internet socket address struct
-	//char pBuffer[BUFFER_SIZE];
 
 	printf("RUNNING Server...\n");
 
 	while(1)
 	{
-		printf("Waiting for a connection\n");
 		hSocket = accept(hServerSocket, (struct sockaddr*)&ClientAddress, (socklen_t*)&nAddressSize);
-		printf("connection\n\
-			sin_family			= %d\n\
-			sin_addr.s_addr		= %s\n\
-			sin_port			= %d\n"
-			, ClientAddress.sin_family
-			, inet_ntoa(ClientAddress.sin_addr)
-			, ntohs(ClientAddress.sin_port));
+
+		// temp output checking...
+		printf("Received new connection (socket=%d) from machine (%s) on port (%d):\n"
+				, hSocket
+				, inet_ntoa(ClientAddress.sin_addr)
+				, ntohs(ClientAddress.sin_port));
+		// print stream
+		read(hSocket, pBuffer, BUFFER_SIZE);
+		printf("[%s]\n\n", pBuffer);
+		strcpy(pBuffer, MESSAGE);
+		write(hSocket, pBuffer, strlen(pBuffer)+1);
+		// close socket
+        if (close(hSocket) == SOCKET_ERROR)
+        {
+			printf("ERROR: Failed to close the socket\n");
+			return -1;
+        }
+
+		// place hSocket on queue
 	}
 
 	return 0;
 }
-/*
-#include <netdb.h>
-#include <unistd.h>
-
-    for(;;)
-    {
-	printf("\nGot a connection");
-        strcpy(pBuffer,MESSAGE);
-	printf("\nSending \"%s\" tolisten client",pBuffer);
-        //number returned by read() and write() is the number of bytes
-        // read or written, with -1 being that an error occured
-        // write what we received back to the server
-        write(hSocket,pBuffer,strlen(pBuffer)+1);
-        // read from socket into buffer
-        read(hSocket,pBuffer,BUFFER_SIZE);
-
-        if(strcmp(pBuffer,MESSAGE) == 0)
-            printf("\nThe messages match");
-        else
-            printf("\nSomething was changed in the message");
-
-	printf("\nClosing the socket");
-        // close socket
-        if(close(hSocket) == SOCKET_ERROR)
-        {
-         printf("\nCould not close socket\n");
-         return 0;
-        }
-    }
-*/
