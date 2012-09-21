@@ -47,7 +47,7 @@ int main(int argc, char** argv)
 			break;
 		case (SERVER_ERROR):
 		default:
-			printf("Server FAILED unexpectedly\n");
+			printf("Server FAILED! TERMINATING...\n");
 	}
 
 	printf("\n");

@@ -14,6 +14,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <pthread.h>
 
 #include "worker.h"
@@ -27,7 +28,7 @@ const unsigned int ml_WORKERS_MAX = 50;
 
 static const unsigned int BACKLOG = 20;
 
-static char rootDirectory[512];
+static char* rootDirectory;
 static int hServerSocket;
 static struct sockaddr_in ServerAddress;
 static unsigned int workers;
@@ -71,6 +72,7 @@ static int initialize(unsigned short int port, const char* root, unsigned int _w
 {
 	int nAddressSize = sizeof(struct sockaddr_in);
 	int i;
+	struct stat rootstat;
 
 	printf("INITIALIZING Server...\n");
 
@@ -79,7 +81,19 @@ static int initialize(unsigned short int port, const char* root, unsigned int _w
 	assert(port > 0 && port <= ml_PORT_MAX);
 
 	// setup the root directory
-	strcpy(rootDirectory, "TODO"); // << --------------------------------------------------------- >> // TODO
+	rootDirectory = (char*) malloc (sizeof(char) * strlen((root == NULL) ? "." : root) + 1);
+	strcpy(rootDirectory, (root == NULL) ? "." : root);
+	if (rootDirectory[strlen(rootDirectory)-1] == '/') rootDirectory[strlen(rootDirectory)-1] = '\0';
+	if (stat(rootDirectory, &rootstat) < 0)
+	{
+		printf("ERROR: (%s) does not exist\n", rootDirectory);
+		return (CHECK_DIR_ERROR);
+	}
+	if (!S_ISDIR(rootstat.st_mode))
+	{
+		printf("ERROR: (%s) exists, but isn't a directory\n", rootDirectory);
+		return (CHECK_DIR_ERROR);
+	}
 
 	// initialize socket
 	hServerSocket = socket(AF_INET, SOCK_STREAM, 0);
@@ -144,6 +158,7 @@ static int run(void)
 	while(1)
 	{
 		hSocket = accept(hServerSocket, (struct sockaddr*)&ClientAddress, (socklen_t*)&nAddressSize);
+		printf("(socket %d) <- New connection from (machine %s) on (port %d)\n", hSocket, inet_ntoa(ClientAddress.sin_addr), ntohs(ClientAddress.sin_port));
 		ml_safeq_put(hSocket);
 	}
 

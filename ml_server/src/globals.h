@@ -11,6 +11,7 @@
 #define SERVER_ERROR			-2
 #define SOCKET_ERROR			-3
 #define INIT_SERVER_ERROR		-4
+#define CHECK_DIR_ERROR			-5
 
 /* constants defined by server.c */
 extern const unsigned short int ml_DEFAULT_PORT_NUMBER;
