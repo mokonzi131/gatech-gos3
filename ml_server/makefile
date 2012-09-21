@@ -3,8 +3,10 @@ EXE = bin/server
 
 OBJ = obj/main.o \
 		obj/server.o \
+		obj/worker.o \
+		obj/safeq.o
 
-OPTIONS = -g -Wall
+OPTIONS = -g -Wall -pthread
 #DEBUG = -g
 
 # OBJ RULES #
@@ -12,10 +14,14 @@ obj/main.o : src/main.c
 	gcc $(OPTIONS) -c src/main.c -o obj/main.o
 obj/server.o : src/server.c
 	gcc $(OPTIONS) -c src/server.c -o obj/server.o
+obj/worker.o : src/worker.c
+	gcc $(OPTIONS) -c src/worker.c -o obj/worker.o
+obj/safeq.o : src/safeq.c
+	gcc $(OPTIONS) -c src/safeq.c -o obj/safeq.o
 
 # EXECUTABLE RULES #
 $(EXE) : $(OBJ)
-	gcc $(OBJ) -o $(EXE)
+	gcc -pthread $(OBJ) -o $(EXE)
 
 # MAKE TARGETS #
 bin : $(EXE)

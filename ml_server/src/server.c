@@ -5,6 +5,7 @@
 #include "server.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <assert.h>
 #include <string.h>
 #include <sys/types.h>
@@ -12,6 +13,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <pthread.h>
+#include "worker.h"
 
 #define SOCKET_ERROR    -1
 
@@ -124,6 +127,25 @@ static int run(void)
 	static struct sockaddr_in ClientAddress;
 	int nAddressSize = sizeof(struct sockaddr_in);
 	char pBuffer[BUFFER_SIZE];
+	// temp thread testing...
+	pthread_t threads[10];
+	int thread_args[10];
+	int rc;
+	int i;
+
+	for (i = 0; i < 10; ++i)
+	{
+		thread_args[i] = i;
+		printf("Creating thread (%d)\n", i);
+		rc = pthread_create(&threads[i], NULL, ml_worker, (void*)&thread_args[i]);
+		assert(rc == 0);
+	}
+	for (i = 0; i < 10; ++i)
+	{
+		rc = pthread_join(threads[i], NULL);
+		assert(rc == 0);
+	}
+	// end temp thread testing
 
 	printf("RUNNING Server...\n");
 	while(1)
