@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include "worker.h"
+#include "safeq.h"
 
 #define SOCKET_ERROR    -1
 
@@ -119,8 +120,7 @@ static int initialize(unsigned short int port, const char* root, unsigned int _w
 	return 0;
 }
 
-#define BUFFER_SIZE         100
-#define MESSAGE             "HTTP/1.0 404 Not Found\r\n Very Sorry Sir/Madame... \r\n\0"
+#define BUFFER_SIZE 100
 static int run(void)
 {
 	int hSocket;
@@ -140,11 +140,6 @@ static int run(void)
 		rc = pthread_create(&threads[i], NULL, ml_worker, (void*)&thread_args[i]);
 		assert(rc == 0);
 	}
-	for (i = 0; i < 10; ++i)
-	{
-		rc = pthread_join(threads[i], NULL);
-		assert(rc == 0);
-	}
 	// end temp thread testing
 
 	printf("RUNNING Server...\n");
@@ -152,25 +147,19 @@ static int run(void)
 	{
 		hSocket = accept(hServerSocket, (struct sockaddr*)&ClientAddress, (socklen_t*)&nAddressSize);
 
-		// temp output checking...
-		printf("Received new connection (socket=%d) from machine (%s) on port (%d):\n"
-				, hSocket
-				, inet_ntoa(ClientAddress.sin_addr)
-				, ntohs(ClientAddress.sin_port));
-		// print stream
-		read(hSocket, pBuffer, BUFFER_SIZE);
-		printf("[%s]\n\n", pBuffer);
-		strcpy(pBuffer, MESSAGE);
-		write(hSocket, pBuffer, strlen(pBuffer)+1);
-		// close socket
-        if (close(hSocket) == SOCKET_ERROR)
-        {
-			printf("ERROR: Failed to close the socket\n");
-			return -1;
-        }
-
 		// place hSocket on queue
+		printf("Server says (%d)\n", hSocket);
+
+		ml_safeq_put(hSocket);
 	}
+
+	/* Thread testing issue
+		for (i = 0; i < 10; ++i)
+	{
+		rc = pthread_join(threads[i], NULL);
+		assert(rc == 0);
+	}
+	*/
 
 	return 0;
 }

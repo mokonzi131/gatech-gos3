@@ -5,8 +5,9 @@
 #ifndef ML_SAFEQ
 #define ML_SAFEQ
 
-// (TODO)
-// TODO turn this into a q
-extern unsigned int ml_safeq_hSocket;
+// ret error (int value we will enqueue)
+int ml_safeq_put(unsigned int);
+// ret error (pointer to int value we will set from our dequeue operation)
+int ml_safeq_get(unsigned int*);
 
 #endif
