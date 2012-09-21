@@ -11,6 +11,7 @@
 
 static unsigned short int port = 0;
 static char* root = NULL;
+static unsigned int workers = 0;
 
 static int setArguments(int, char**);
 
@@ -24,15 +25,16 @@ int main(int argc, char** argv)
 	error = setArguments(argc, argv);
 	if (error)
 	{
-		printf("usage: %s [-p port] [-r root_directory]\n", argv[0]);
-		printf("  [-p port] : valid (1-65535) port on which to listen (default is 51115)\n");
+		printf("usage: %s [-p port] [-r root_directory] [-w workers]\n", argv[0]);
+		printf("  [-p port] : valid (1-%d) port on which to listen (default is %d)\n", ml_PORT_MAX, ml_DEFAULT_PORT_NUMBER);
 		printf("  [-r root_directory] : directory to serve (default is ./)\n");
+		printf("  [-w workers] : a reasonable (1-%d) number of workers to use (default is %d)\n", ml_WORKERS_MAX, ml_DEFAULT_WORKERS_NUMBER);
 		printf("\n");
 		return -1;
 	}
 
-	// run the server
-	error = ml_server(port, root);
+	// launch the server
+	error = ml_server(port, root, workers);
 	switch(error)
 	{
 		case 0:
@@ -51,20 +53,27 @@ static int setArguments(int argc, char** argv)
 {
 	int check;
 	int index;
-	int portnum;
+	int test;
 
-	while ((check = getopt(argc, argv, "p:r:")) != -1)
+	// set appropriate arguments from command line, fail on mal-formed input
+	while ((check = getopt(argc, argv, "p:r:w:")) != -1)
 	{
 		switch(check)
 		{
 			case 'p':
-				portnum = atoi(optarg);
-				if (portnum <= 0 || portnum > 65535)
+				test = atoi(optarg);
+				if (test <= 0 || test > ml_PORT_MAX)
 					return -1;
-				port = portnum;
+				port = test;
 				break;
 			case 'r':
 				root = optarg;
+				break;
+			case 'w':
+				test = atoi(optarg);
+				if (test <= 0 || test > ml_WORKERS_MAX)
+					return -1;
+				workers = test;
 				break;
 			case '?':
 			default:
@@ -72,6 +81,7 @@ static int setArguments(int argc, char** argv)
 		}
 	}
 
+	// don't accept extra commands
 	for (index = optind; index < argc; ++index)
 		return -1;
 

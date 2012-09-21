@@ -14,24 +14,29 @@
 #include <unistd.h>
 
 #define SOCKET_ERROR    -1
-#define BACKLOG			5
 
 /* DATA */
 const unsigned short int ml_DEFAULT_PORT_NUMBER = 51115;
+const unsigned short int ml_PORT_MAX = 65535;
+const unsigned int ml_DEFAULT_WORKERS_NUMBER = 5;
+const unsigned int ml_WORKERS_MAX = 50;
+
+const unsigned int BACKLOG = 20;
 
 static char rootDirectory[512];
 static int hServerSocket;
 static struct sockaddr_in ServerAddress;
+static unsigned int workers;
 
-static int initialize(const unsigned short int, const char*);
+static int initialize(unsigned short int, const char*, unsigned int);
 static int run(void);
 
 /* PUBLIC INTERFACE */
-int ml_server(const unsigned short int port, const char* root)
+int ml_server(unsigned short int port, const char* root, unsigned int workers)
 {
 	int error;
 
-	error = initialize(port, root);
+	error = initialize(port, root, workers);
 	switch(error)
 	{
 		case 0:
@@ -55,7 +60,7 @@ int ml_server(const unsigned short int port, const char* root)
 }
 
 /* PRIVATE INTERFACE */
-static int initialize(unsigned short int port, const char* root)
+static int initialize(unsigned short int port, const char* root, unsigned int _workers)
 {
 	int nAddressSize = sizeof(struct sockaddr_in);
 
@@ -63,7 +68,7 @@ static int initialize(unsigned short int port, const char* root)
 
 	// setup the port
 	port = (port == 0 ? ml_DEFAULT_PORT_NUMBER : port);
-	assert(port > 0 && port <= 65535);
+	assert(port > 0 && port <= ml_PORT_MAX);
 
 	// setup the root directory TODO <<<<< ----------------------------------------
 	strcpy(rootDirectory, "TODO");
@@ -95,18 +100,24 @@ static int initialize(unsigned short int port, const char* root)
 		return -1;
 	}
 
-	// report setup
+	// create and launch worker threads
+	// TODO <<<<< --------------------------------------------------------------------
+	workers = (_workers == 0 ? ml_DEFAULT_WORKERS_NUMBER : _workers);
+	assert(workers > 0 && workers <= ml_WORKERS_MAX);
+
+	// report setup results
 	getsockname(hServerSocket, (struct sockaddr*)&ServerAddress, (socklen_t*)&nAddressSize);
 	printf("  server_ip = %s\n", inet_ntoa(ServerAddress.sin_addr));
 	printf("  port      = %d\n", ntohs(ServerAddress.sin_port));
 	printf("  directory = %s\n", rootDirectory);
+	printf("  workers   = %d\n", workers);
 	printf("\n");
 
 	return 0;
 }
 
 #define BUFFER_SIZE         100
-#define MESSAGE             "HTTP/1.0 404 Not Found\r\n\r\n"
+#define MESSAGE             "HTTP/1.0 404 Not Found\r\n Very Sorry Sir/Madame... \r\n\0"
 static int run(void)
 {
 	int hSocket;
@@ -114,10 +125,7 @@ static int run(void)
 	int nAddressSize = sizeof(struct sockaddr_in);
 	char pBuffer[BUFFER_SIZE];
 
-	//struct hostent* pHostInfo; // Internet socket address struct
-
 	printf("RUNNING Server...\n");
-
 	while(1)
 	{
 		hSocket = accept(hServerSocket, (struct sockaddr*)&ClientAddress, (socklen_t*)&nAddressSize);
