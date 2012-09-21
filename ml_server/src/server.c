@@ -122,6 +122,13 @@ static int initialize(unsigned short int port, const char* root, unsigned int _w
 		return (INIT_SERVER_ERROR);
 	}
 
+	// establish safeq (for passing connections to workers)
+	if (ml_safeq_initialize())
+	{
+		printf("ERROR: Safeq failed to initialize\n");
+		return (INIT_SERVER_ERROR);
+	}
+
 	// create and launch worker threads
 	workers = (_workers == 0 ? ml_DEFAULT_WORKERS_NUMBER : _workers);
 	assert(workers > 0 && workers <= ml_WORKERS_MAX);

@@ -48,11 +48,12 @@ void* ml_worker(void* argument)
 		strcpy(pBuffer, MESSAGE);
 		write(socket, pBuffer, strlen(pBuffer)+1);
 
+		usleep(80000);
 		// close socket
         if (close(socket) == SOCKET_ERROR)
         {
 			printf("ERROR: Failed to close the socket\n");
-			return -1;
+			//return -1;
         }
 		socket = 0;
 	}
