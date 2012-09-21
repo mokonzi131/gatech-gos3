@@ -1,6 +1,7 @@
 // Michael Landes
 // GaTech : GOS : Project 1
 ///////////////////////////
+#include "globals.h"
 
 #include "worker.h"
 
@@ -14,11 +15,10 @@
 #include <string.h>
 
 /* DATA */
-
+/* PRIVATE INTERFACE */
 /* PUBLIC INTERFACE */
 #define BUFFER_SIZE         100
 #define MESSAGE             "HTTP/1.0 404 Not Found\r\n Very Sorry Sir/Madame... \r\n\0"
-#define SOCKET_ERROR    -1
 
 void* ml_worker(void* argument)
 {
@@ -40,6 +40,7 @@ void* ml_worker(void* argument)
 
 
 	// temp output checking...
+	getsockname(socket, (struct sockaddr*)&ClientAddress, (socklen_t*)&nAddressSize);
 		printf("Thread (%d) received new connection (socket=%d) from machine (%s) on port (%d):\n"
 				, tid
 				, socket
@@ -57,12 +58,11 @@ void* ml_worker(void* argument)
 			return -1;
         }
 
-		close(socket);
 		socket = 0;
 	}
 
 	return NULL;
 }
 
-/* PRIVATE INTERFACE */
+/* IMPLEMENTATION */
 

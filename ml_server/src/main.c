@@ -1,61 +1,67 @@
 // Michael Landes
 // GaTech : GOS : Project 1
 ///////////////////////////
+#include "globals.h"
 
 #include <stdio.h>
 #include <unistd.h>
-#include "server.h"
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
 
+#include "server.h"
+
+/* DATA */
 static unsigned short int port = 0;
 static char* root = NULL;
 static unsigned int workers = 0;
 
+/* PRIVATE INTERFACE */
 static int setArguments(int, char**);
 
+/* MAIN */
 int main(int argc, char** argv)
 {
-	int error;
+	int result;
 
 	assert(sizeof(unsigned short int) == 2);
 
 	// parse command line
-	error = setArguments(argc, argv);
-	if (error)
+	result = setArguments(argc, argv);
+	if (result != SUCCESS)
 	{
 		printf("usage: %s [-p port] [-r root_directory] [-w workers]\n", argv[0]);
 		printf("  [-p port] : valid (1-%d) port on which to listen (default is %d)\n", ml_PORT_MAX, ml_DEFAULT_PORT_NUMBER);
 		printf("  [-r root_directory] : directory to serve (default is ./)\n");
 		printf("  [-w workers] : a reasonable (1-%d) number of workers to use (default is %d)\n", ml_WORKERS_MAX, ml_DEFAULT_WORKERS_NUMBER);
 		printf("\n");
-		return -1;
+		return result;
 	}
 
 	// launch the server
-	error = ml_server(port, root, workers);
-	switch(error)
+	result = ml_server(port, root, workers);
+	switch(result)
 	{
-		case 0:
+		case (SUCCESS):
 			printf("TERMINATING Server\n");
 			break;
-		case -1:
+		case (SERVER_ERROR):
 		default:
 			printf("Server FAILED unexpectedly\n");
 	}
 
 	printf("\n");
-	return 0;
+	return result;
 }
 
+/* IMPLEMENTATION */
 static int setArguments(int argc, char** argv)
 {
 	int check;
 	int index;
 	int test;
 
-	// set appropriate arguments from command line, fail on mal-formed input
+	// set appropriate arguments from command line, reject on mal-formed input
 	while ((check = getopt(argc, argv, "p:r:w:")) != -1)
 	{
 		switch(check)
@@ -63,7 +69,7 @@ static int setArguments(int argc, char** argv)
 			case 'p':
 				test = atoi(optarg);
 				if (test <= 0 || test > ml_PORT_MAX)
-					return -1;
+					return (CMD_INPUTS_ERROR);
 				port = test;
 				break;
 			case 'r':
@@ -72,18 +78,18 @@ static int setArguments(int argc, char** argv)
 			case 'w':
 				test = atoi(optarg);
 				if (test <= 0 || test > ml_WORKERS_MAX)
-					return -1;
+					return (CMD_INPUTS_ERROR);
 				workers = test;
 				break;
 			case '?':
 			default:
-				return -1;
+				return (CMD_INPUTS_ERROR);
 		}
 	}
 
-	// don't accept extra commands
+	// reject if extra commands are present
 	for (index = optind; index < argc; ++index)
-		return -1;
+		return (CMD_INPUTS_ERROR);
 
-	return 0;
+	return (SUCCESS);
 }

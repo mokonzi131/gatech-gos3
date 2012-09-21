@@ -5,7 +5,7 @@
 #ifndef ML_WORKER
 #define ML_WORKER
 
-// (thread id - should be an int)
+/// (thread id as int) ///
 void* ml_worker(void*);
 
 #endif
