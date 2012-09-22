@@ -11,12 +11,7 @@ int ml_http_readLine(int, char[]);
 /// ret T/F (pointer to buffer containing input stream) ///
 int ml_http_isHTTP(const char*);
 
-///
+/// (socket handle, buffer to use) /// status line is in buffer
 void ml_http_processHTTPRequest(int, char[]);
-
-/// (...) ///
-void ml_http_returnError(int hSocket, const char* message, int type); // TODO
-
-void ml_http_returnDirectory(int hSocket); // TODO
 
 #endif

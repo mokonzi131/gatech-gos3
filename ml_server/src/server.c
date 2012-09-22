@@ -67,6 +67,11 @@ int ml_server(unsigned short int port, const char* root, unsigned int workers)
 	return result;
 }
 
+char* ml_server_getRootDir()
+{
+	return rootDirectory;
+}
+
 /* IMPLEMENTATION */
 static int initialize(unsigned short int port, const char* root, unsigned int _workers)
 {
@@ -165,7 +170,7 @@ static int run(void)
 	while(1)
 	{
 		hSocket = accept(hServerSocket, (struct sockaddr*)&ClientAddress, (socklen_t*)&nAddressSize);
-		printf("(socket %d) <- New connection from (machine %s) on (port %d)\n", hSocket, inet_ntoa(ClientAddress.sin_addr), ntohs(ClientAddress.sin_port));
+		//printf("(socket %d) <- New connection from (machine %s) on (port %d)\n", hSocket, inet_ntoa(ClientAddress.sin_addr), ntohs(ClientAddress.sin_port));
 		ml_safeq_put(hSocket);
 	}
 

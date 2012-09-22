@@ -28,31 +28,27 @@ static void processConnection(int, char[]);
 void* ml_worker(void* argument)
 {
 	int tid = *((int*)argument);;
-	unsigned int socket = 0;
+	unsigned int hSocket = 0;
 	char inBuffer[BUFFER_SIZE];
 
-	// test section
 	//printf("Hello World from thread (%d)\n", tid);
-	// end test section
 
 	while(1)
 	{
-		socket = ml_safeq_get();
+		hSocket = ml_safeq_get();
 
-		// temp checking...
-		printf("Thread (%d) handling socket (%d)\n", tid, socket);
-		// end temp checking...
+		//printf("Thread (%d) handling socket (%d)\n", tid, hSocket);
 
-		processConnection(socket, inBuffer);
+		processConnection(hSocket, inBuffer);
 		//usleep(50000);
 
 		// close socket and move on
-        if (close(socket) == SOCKET_ERROR)
+        if (close(hSocket) == SOCKET_ERROR)
         {
 			printf("ERROR: Failed to close the socket\n");
 			//return -1; (no error return, simply move on)
         }
-		socket = 0;
+		hSocket = 0;
 	}
 
 	return NULL;
@@ -66,7 +62,7 @@ static void processConnection(int hSocket, char inBuffer[])
 	// check the socket
 	if (hSocket <= 0) return;
 
-	// read the request
+	// read the request, if there is no request line, END
 	result = ml_http_readLine(hSocket, inBuffer);
 	if (result != SUCCESS)
 	{
@@ -74,7 +70,7 @@ static void processConnection(int hSocket, char inBuffer[])
 		return;
 	}
 
-	// if (!http) return un-handled protocol message END
+	// if protocol is not HTTP, return un-handled protocol message END
 	if (!ml_http_isHTTP(inBuffer))
 	{
 		write(hSocket, UNHANDLED_PROTOCOL, strlen(UNHANDLED_PROTOCOL)+1);
