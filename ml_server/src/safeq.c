@@ -67,14 +67,15 @@ int ml_safeq_put(unsigned int socket)
 
 		pthread_cond_broadcast(&c_isItem);
 	}
-	printf("sq size = %d\n", sockets.size);
+	//printf("sq size = %d\n", sockets.size);
 	pthread_mutex_unlock(&m_qaccess);
 
 	return (SUCCESS);
 }
 
-int ml_safeq_get(unsigned int* psocket)
+int ml_safeq_get(void)
 {
+	int socket;
 	pthread_mutex_lock(&m_qaccess);
 	{
 		assert(sockets.array != NULL);
@@ -83,7 +84,7 @@ int ml_safeq_get(unsigned int* psocket)
 			pthread_cond_wait(&c_isItem, &m_qaccess);
 
 		// get item off the q
-		*psocket = *(sockets.front);
+		socket = *(sockets.front);
 		--(sockets.size);
 		++(sockets.front);
 		if (sockets.front == (sockets.array + sockets.capacity))
@@ -93,7 +94,7 @@ int ml_safeq_get(unsigned int* psocket)
 	}
 	pthread_mutex_unlock(&m_qaccess);
 
-	return (SUCCESS);
+	return socket;
 }
 
 /* IMPLEMENTATION */

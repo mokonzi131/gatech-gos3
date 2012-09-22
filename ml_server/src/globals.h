@@ -13,6 +13,7 @@
 #define INIT_SERVER_ERROR		-4
 #define CHECK_DIR_ERROR			-5
 #define SAFEQ_ERROR				-6
+#define ML_HTTP_ERROR			-7
 
 /* constants defined by server.c */
 extern const unsigned short int ml_DEFAULT_PORT_NUMBER;

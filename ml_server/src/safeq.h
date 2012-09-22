@@ -9,7 +9,7 @@
 int ml_safeq_put(unsigned int);
 
 /// ret error (pointer to int to deq) ///
-int ml_safeq_get(unsigned int*);
+int ml_safeq_get(void);
 
 /// ret error (void) ///
 int ml_safeq_initialize(void);

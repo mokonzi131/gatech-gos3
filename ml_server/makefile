@@ -4,7 +4,8 @@ EXE = bin/server
 OBJ = obj/main.o \
 		obj/server.o \
 		obj/worker.o \
-		obj/safeq.o
+		obj/safeq.o \
+		obj/http.o
 
 OPTIONS = -g -Wall -pthread
 #DEBUG = -g
@@ -18,6 +19,8 @@ obj/worker.o : src/worker.c
 	gcc $(OPTIONS) -c src/worker.c -o obj/worker.o
 obj/safeq.o : src/safeq.c
 	gcc $(OPTIONS) -c src/safeq.c -o obj/safeq.o
+obj/http.o : src/http.c
+	gcc $(OPTIONS) -c src/http.c -o obj/http.o
 
 # EXECUTABLE RULES #
 $(EXE) : $(OBJ)
