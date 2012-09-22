@@ -8,10 +8,13 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "server.h"
 
 /* DATA */
+static const int BUFFER_SIZE = 1024;
+
 static const char* S_ECHO = "Echo";
 static const char* S_OK = "Ok";
 static const char* S_BAD_REQUEST = "Bad Request";
@@ -24,6 +27,7 @@ static const char* R_ALERT = "<html> \n <head><title>ALERT</title></head> \n <bo
 static int resolveURL(char*, char*);
 static int respondAlert(int, int, char*);
 static int generateStatusLine(int, char*);
+static void processHTTPGetRequest(int, char[], char*);
 
 /* PUBLIC INTERFACE */
 int ml_http_readLine(int hSocket, char inBuffer[])
@@ -31,7 +35,7 @@ int ml_http_readLine(int hSocket, char inBuffer[])
 	int location = 0;
 	int result;
 
-	while ((result = read(hSocket, inBuffer+location, 1)) == 1)
+	while (location < BUFFER_SIZE-1 && (result = read(hSocket, inBuffer+location, 1)) == 1)
 	{
 		if (inBuffer[location++] == '\n')
 			break;
@@ -61,35 +65,28 @@ int ml_http_isHTTP(const char* status)
 	return (0);
 }
 
-void ml_http_processHTTPRequest(int hSocket, char inBuffer[])//
+void ml_http_processHTTPRequest(int hSocket, char inBuffer[], char* statusLine)//
 {
-	int result;
-	char* url;
+	char* httpMethod = (char*) malloc (strlen(statusLine));
+	char* httpUrl = (char*) malloc (strlen(statusLine));
 
-//	result = resolveURL(inBuffer, url);
-//	if (result != SUCCESS)
-	{
-//		respondError(hSocket, R_OK, "Fake Error Message");
-	}
+	sscanf(statusLine, "%s %s %*s", httpMethod, httpUrl);
 
-	// determine method, generate error response if necessary
-	// retrieve path, and resolve resource location (with protection)
-	// read header lines...
-	// build response
-	// return resource
+	printf("METHOD: %s\n", httpMethod);
+	printf("URL: %s\n", httpUrl);
 
-	// echo testing
-	printf("STATUS: %s\n", inBuffer);
-	respondAlert(hSocket, 501, inBuffer);
+	// make the appropriate HTTP method call
+	if (strncmp(httpMethod, "GET", 3) == 0)
+		processHTTPGetRequest(hSocket, inBuffer, httpUrl);
+	else
+		respondAlert(hSocket, 501, "Request method not implemented");
+	// other methods would be called from here...
+
+	free(httpMethod);
+	free(httpUrl);
 }
 
 /* IMPLEMENTATION */
-static int resolveURL(char* status, char* resolved)
-{
-	printf("RESOLVED = %s + %s\n", ml_server_getRootDir(), status);
-	return (ML_HTTP_ERROR);
-}
-
 static int respondAlert(int hSocket, int type, char* message)
 {
 	char header[256];
@@ -144,7 +141,42 @@ static int generateStatusLine(int type, char* output)
 			return (ML_HTTP_ERROR);
 	}
 
-	sprintf(output, "HTTP/1.0 %d %s\r\n", type, message);
+	if (sprintf(output, "HTTP/1.0 %d %s\r\n", type, message) < 0)
+		return (ML_HTTP_ERROR);
 
 	return (SUCCESS);
 }
+
+static void processHTTPGetRequest(int hSocket, char inBuffer[], char* url)
+{
+	int result;
+
+
+	//result = resolveURL(inBuffer, )
+//	result = resolveURL(inBuffer, url);
+//	if (result != SUCCESS)
+	{
+//		respondError(hSocket, R_OK, "Fake Error Message");
+	}
+
+	// resolve url
+	// is path legal ? else send (Forbidden)
+	// is
+
+	// retrieve path, and resolve resource location (with protection)
+	// read header lines...
+	// build response
+	// return resource
+
+	// echo testing
+	//printf("STATUS: %s\n", inBuffer);
+	respondAlert(hSocket, 501, inBuffer);
+}
+
+static int resolveURL(char* status, char* resolved)
+{
+	printf("RESOLVED = %s + %s\n", ml_server_getRootDir(), status);
+	return (ML_HTTP_ERROR);
+}
+
+/// respondAlert(hSocket, 501, "Request method not implemented");

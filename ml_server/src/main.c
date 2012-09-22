@@ -25,6 +25,7 @@ int main(int argc, char** argv)
 	int result;
 
 	assert(sizeof(unsigned short int) == 2);
+	assert(sizeof(char) == 1);
 
 	// parse command line
 	result = setArguments(argc, argv);

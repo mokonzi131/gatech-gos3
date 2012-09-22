@@ -12,6 +12,6 @@ int ml_http_readLine(int, char[]);
 int ml_http_isHTTP(const char*);
 
 /// (socket handle, buffer to use) /// status line is in buffer
-void ml_http_processHTTPRequest(int, char[]);
+void ml_http_processHTTPRequest(int, char[], char*);
 
 #endif

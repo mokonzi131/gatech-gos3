@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "safeq.h"
 #include "http.h"
@@ -19,7 +20,7 @@
 /* DATA */
 static const int BUFFER_SIZE = 1024;
 static char FAILURE_TO_INTERPRET[] = "SERVER failed to interpret your request, closing connection\n";
-static char UNHANDLED_PROTOCOL[] = "SERVER does not implement your protocol, closing connection\n";
+//static char UNHANDLED_PROTOCOL[] = "SERVER does not implement your protocol, closing connection\n";
 
 /* PRIVATE INTERFACE */
 static void processConnection(int, char[]);
@@ -27,7 +28,7 @@ static void processConnection(int, char[]);
 /* PUBLIC INTERFACE */
 void* ml_worker(void* argument)
 {
-	int tid = *((int*)argument);;
+	//int tid = *((int*)argument);;
 	unsigned int hSocket = 0;
 	char inBuffer[BUFFER_SIZE];
 
@@ -58,6 +59,7 @@ void* ml_worker(void* argument)
 static void processConnection(int hSocket, char inBuffer[])
 {
 	int result;
+	char* statusLine;
 
 	// check the socket
 	if (hSocket <= 0) return;
@@ -70,13 +72,17 @@ static void processConnection(int hSocket, char inBuffer[])
 		return;
 	}
 
-	// if protocol is not HTTP, return un-handled protocol message END
-	if (!ml_http_isHTTP(inBuffer))
-	{
-		write(hSocket, UNHANDLED_PROTOCOL, strlen(UNHANDLED_PROTOCOL)+1);
-		return;
-	}
+///	// if protocol is not HTTP, return un-handled protocol message END
+///	if (!ml_http_isHTTP(inBuffer))
+///	{
+///		write(hSocket, UNHANDLED_PROTOCOL, strlen(UNHANDLED_PROTOCOL)+1);
+///		return;
+///	}
+/// removed because the specs ask us to handle request in format: [GET <path>\r\n]
 
 	// call processHTTPRequest()
-	ml_http_processHTTPRequest(hSocket, inBuffer);
+	statusLine = (char*) malloc (sizeof(char) * (strlen(inBuffer)+1));
+	strcpy(statusLine, inBuffer);
+	ml_http_processHTTPRequest(hSocket, inBuffer, statusLine);
+	free(statusLine);
 }
