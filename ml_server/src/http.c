@@ -18,6 +18,7 @@ static const char* S_BAD_REQUEST = "Bad Request";
 static const char* S_FORBIDDEN = "Forbidden";
 static const char* S_NOT_FOUND = "Not Found";
 static const char* S_NOT_IMPLEMENTED = "Not Implemented";
+static const char* R_ALERT = "<html> \n <head><title>ALERT</title></head> \n <body> %s </body> \n </html>\n";
 
 /* PRIVATE INTERFACE */
 static int resolveURL(char*, char*);
@@ -79,7 +80,7 @@ void ml_http_processHTTPRequest(int hSocket, char inBuffer[])//
 
 	// echo testing
 	printf("STATUS: %s\n", inBuffer);
-	respondAlert(hSocket, 101, "hello world!");
+	respondAlert(hSocket, 501, inBuffer);
 }
 
 /* IMPLEMENTATION */
@@ -91,22 +92,26 @@ static int resolveURL(char* status, char* resolved)
 
 static int respondAlert(int hSocket, int type, char* message)
 {
-	char response[256];
+	char header[256];
+	char content[256];
 	int offset = 0;
 
-	///HTTP/1.0 101 Echo ...... message
-	memset(response, '\0', sizeof(response));
+	// Create the content string
+	if (sprintf(content, R_ALERT, message) < 0)
+		return (ML_HTTP_ERROR);
 
 	// Create the Status Line
-	if (generateStatusLine(type, response) != (SUCCESS))
+	if (generateStatusLine(type, header) != (SUCCESS))
 		return (ML_HTTP_ERROR);
-	offset = strlen(response);
 
 	// Create the Header information
+	offset = strlen(header);
+	if (sprintf(header+offset, "Server: Mokonzi\r\nContent-Type: text/html\r\nContent-Length: %d\r\n\r\n", (int)strlen(content)) < 0)
+		return (ML_HTTP_ERROR);
 
-	// Create the HTML body
-
-	write(hSocket, response, strlen(response)+1);
+	// Respond
+	write(hSocket, header, strlen(header)+1);
+	write(hSocket, content, strlen(content)+1);
 
 	return (SUCCESS);
 }
