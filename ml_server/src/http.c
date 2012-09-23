@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <sys/types.h>
+#include <sys/sendfile.h>
 
 #include "server.h"
 
@@ -256,7 +257,7 @@ static void respondDirectory(int hSocket, char* resource)
 {
 	char header[256];
 	char length[100];
-	char* content = (char*) malloc (2048);
+	char* content = (char*) malloc (1024);
 	DIR* dirp;
 	struct dirent* dp;
 
@@ -270,7 +271,7 @@ static void respondDirectory(int hSocket, char* resource)
 	while((dp = readdir(dirp)) != NULL)
 	{
 		if (dp->d_name[0] == '.') continue;
-		strcat(content, "<a href='./");
+		strcat(content, "<a href='/");
 		strcat(content, dp->d_name);
 		strcat(content, "'>");
 		strcat(content, dp->d_name);
@@ -286,15 +287,15 @@ static void respondDirectory(int hSocket, char* resource)
 	strcat(header, length);
 	strcat(header, "\r\n");
 
-	write(hSocket, header, strlen(header)+1);
-	write(hSocket, content, strlen(content)+1);
+	write(hSocket, header, strlen(header));
+	write(hSocket, content, strlen(content));
 
 	free(content);
 }
 
 static void respondRegularFile(int hSocket, char* resource, int size)
 {
-	char header[200];
+	char header[512];
 	char length[100];
 	FILE* file;
 
@@ -312,17 +313,12 @@ static void respondRegularFile(int hSocket, char* resource, int size)
 	strcat(header, length);
 	strcat(header, "\r\n");
 
-	write(hSocket, header, strlen(header)+1);
+	write(hSocket, header, strlen(header));
 
 	file = fopen(resource, "r");
 	if (file != NULL)
 	{
-		char c;
-		do
-		{
-			c = fgetc(file);
-			write(hSocket, &c, 1);
-		} while(c != EOF);
+		sendfile(hSocket, fileno(file), NULL, size);
 		fclose(file);
 	}
 }
