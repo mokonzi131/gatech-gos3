@@ -295,39 +295,34 @@ static void respondDirectory(int hSocket, char* resource)
 static void respondRegularFile(int hSocket, char* resource, int size)
 {
 	char header[200];
-//	char*
+	char length[100];
+	FILE* file;
 
-	respondAlert(hSocket, 501, "TODO return a file");
-//	string r_content = "";
-//  if(url.rfind(".html") == url.length() - 5)
-// /   r_content = "Content-Type: text/html\r\n";
-//  else if(url.rfind(".txt") == url.length() - 4)
-//    r_content = "Content-Type: text/plain\r\n";
-//  else if(url.rfind(".jpg") == url.length() - 4)
-//    r_content = "Content-Type: image/jpeg\r\n";
-//  else if(url.rfind(".gif") == url.length() - 4)
-//    r_content = "Content-Type: image/gif\r\n";
-//  else {
-//    string error_message = "Server could not serve that file type";
-//    RetError(hSocket,error_message,500);
-//    return;
-// / }
-//  string r_status = "HTTP/1.0 200 OK\r\n";
-//  string r_server = "Server: Mokonzi v.131\r\n";
-//  char s_length[] = "\0\0\0\0\0\0\0";
-//  sprintf(s_length,"%d",size);
-//  string r_length = "Content-Length: " + string(s_length) + "\r\n\r\n";
-//  write(hSocket,r_status.c_str(),r_status.length());
-//  write(hSocket,r_server.c_str(),r_server.length());
-//  write(hSocket,r_content.c_str(),r_content.length());
-//  write(hSocket,r_length.c_str(),r_length.length());
-//  ifstream is;
-//  is.open(url.c_str());
-//  while(is.good()) {
-//    char c = is.get();
-//    if(is.good())
-//      write(hSocket,&c,1);
-//  }
-//  is.close();
+	generateStatusLine(200, header);
+	strcat(header, "Server: Mokonzi\r\n");
+	if (strstr(resource, ".http") == strlen(resource) - 5)
+		strcat(header, "Content-Type: text/html\r\n");
+	else if (strstr(resource, ".jpg") == strlen(resource) - 4)
+		strcat(header, "Content-Type: image/jpeg\r\n");
+	else if (strstr(resource, ".gif") == strlen(resource) - 4)
+		strcat(header, "Content-Type: image/gif\r\n");
+	else
+		strcat(header, "Content-Type: text/plain\r\n");
+	sprintf(length, R_LENGTH, size);
+	strcat(header, length);
+	strcat(header, "\r\n");
 
+	write(hSocket, header, strlen(header)+1);
+
+	file = fopen(resource, "r");
+	if (file != NULL)
+	{
+		char c;
+		do
+		{
+			c = fgetc(file);
+			write(hSocket, &c, 1);
+		} while(c != EOF);
+		fclose(file);
+	}
 }
