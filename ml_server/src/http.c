@@ -150,33 +150,80 @@ static int generateStatusLine(int type, char* output)
 static void processHTTPGetRequest(int hSocket, char inBuffer[], char* url)
 {
 	int result;
+	char* resource = (char*) malloc (strlen(ml_server_getRootDir()) + strlen(url) + 10);
+	memset(resource, '\0', sizeof(resource));
 
-
-	//result = resolveURL(inBuffer, )
-//	result = resolveURL(inBuffer, url);
-//	if (result != SUCCESS)
+	// check for absolute url format
+	if (url[0] != '/')
 	{
-//		respondError(hSocket, R_OK, "Fake Error Message");
+		respondAlert(hSocket, 400, "Please supply an absolute url");
+		return;
 	}
 
-	// resolve url
-	// is path legal ? else send (Forbidden)
-	// is
+	// we don't handle dynamic url's
+	if (strchr(url, '?') != NULL)
+	{
+		respondAlert(hSocket, 501, "Server only serves static resources");
+		return;
+	}
 
-	// retrieve path, and resolve resource location (with protection)
-	// read header lines...
-	// build response
-	// return resource
+	// resolve the url if possible to a file location
+	result = resolveURL(url, resource);
+	if (result != SUCCESS)
+	{
+		respondAlert(hSocket, 400, "Bad request");
+		return;
+	}
 
-	// echo testing
-	//printf("STATUS: %s\n", inBuffer);
-	respondAlert(hSocket, 501, inBuffer);
+	// is path legally located ? else send (Forbidden)
+	if (strncmp(resource, ml_server_getRootDir(), strlen(ml_server_getRootDir())))
+	{
+		respondAlert(hSocket, 403, "Requested file outside root server directory");
+		return;
+	}
+
+	// is path exist ? else send (Not Found)
+
+
+	// alright baby let's return this sucker!
+	respondAlert(hSocket, 501, "So far So GOOD");
+
+	free(resource);
 }
 
-static int resolveURL(char* status, char* resolved)
+static int resolveURL(char* url, char* resolved)
 {
-	printf("RESOLVED = %s + %s\n", ml_server_getRootDir(), status);
-	return (ML_HTTP_ERROR);
-}
+	char* to;
+	char* from;
 
-/// respondAlert(hSocket, 501, "Request method not implemented");
+	sprintf(resolved, ml_server_getRootDir(), strlen(ml_server_getRootDir()));
+	to = strchr(resolved, '\0');
+	from = url;
+
+	// resolve the url, handling directory changes
+	while(*from != '\0')
+	{
+		// handle a ./
+		if (*from == '/' && *(from+1) == '.' && *(from+2) == '/')
+		{
+			from += 2;
+			continue;
+		}
+
+		// handle a ../
+		if (*from == '/' && *(from+1) == '.' && *(from+2) == '.' && *(from+3) == '/')
+		{
+			from += 3;
+			while (to != resolved && *to != '/') --to;
+			*to = ' ';
+			continue;
+		}
+
+		// copy
+		*to++ = *from++;
+	}
+	*to = '\0';
+
+	printf("RESOLVED = %s\n", resolved);
+	return (SUCCESS);
+}
