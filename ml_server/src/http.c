@@ -9,6 +9,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <sys/types.h>
 
 #include "server.h"
 
@@ -22,12 +25,15 @@ static const char* S_FORBIDDEN = "Forbidden";
 static const char* S_NOT_FOUND = "Not Found";
 static const char* S_NOT_IMPLEMENTED = "Not Implemented";
 static const char* R_ALERT = "<html> \n <head><title>ALERT</title></head> \n <body> %s </body> \n </html>\n";
+static const char* R_LENGTH = "Content-Length: %d\r\n";
 
 /* PRIVATE INTERFACE */
 static int resolveURL(char*, char*);
 static int respondAlert(int, int, char*);
 static int generateStatusLine(int, char*);
 static void processHTTPGetRequest(int, char[], char*);
+static void respondDirectory(int, char*);
+static void respondRegularFile(int, char*, int);
 
 /* PUBLIC INTERFACE */
 int ml_http_readLine(int hSocket, char inBuffer[])
@@ -71,9 +77,6 @@ void ml_http_processHTTPRequest(int hSocket, char inBuffer[], char* statusLine)/
 	char* httpUrl = (char*) malloc (strlen(statusLine));
 
 	sscanf(statusLine, "%s %s %*s", httpMethod, httpUrl);
-
-	printf("METHOD: %s\n", httpMethod);
-	printf("URL: %s\n", httpUrl);
 
 	// make the appropriate HTTP method call
 	if (strncmp(httpMethod, "GET", 3) == 0)
@@ -150,6 +153,7 @@ static int generateStatusLine(int type, char* output)
 static void processHTTPGetRequest(int hSocket, char inBuffer[], char* url)
 {
 	int result;
+	struct stat filestat;
 	char* resource = (char*) malloc (strlen(ml_server_getRootDir()) + strlen(url) + 10);
 	memset(resource, '\0', sizeof(resource));
 
@@ -157,6 +161,7 @@ static void processHTTPGetRequest(int hSocket, char inBuffer[], char* url)
 	if (url[0] != '/')
 	{
 		respondAlert(hSocket, 400, "Please supply an absolute url");
+		free(resource);
 		return;
 	}
 
@@ -164,6 +169,7 @@ static void processHTTPGetRequest(int hSocket, char inBuffer[], char* url)
 	if (strchr(url, '?') != NULL)
 	{
 		respondAlert(hSocket, 501, "Server only serves static resources");
+		free(resource);
 		return;
 	}
 
@@ -172,6 +178,7 @@ static void processHTTPGetRequest(int hSocket, char inBuffer[], char* url)
 	if (result != SUCCESS)
 	{
 		respondAlert(hSocket, 400, "Bad request");
+		free(resource);
 		return;
 	}
 
@@ -179,14 +186,31 @@ static void processHTTPGetRequest(int hSocket, char inBuffer[], char* url)
 	if (strncmp(resource, ml_server_getRootDir(), strlen(ml_server_getRootDir())))
 	{
 		respondAlert(hSocket, 403, "Requested file outside root server directory");
+		free(resource);
 		return;
 	}
 
 	// is path exist ? else send (Not Found)
-
+	if (stat(resource, &filestat) < 0)
+	{
+		respondAlert(hSocket, 404, "Unable to locate this file");
+		free(resource);
+		return;
+	}
 
 	// alright baby let's return this sucker!
-	respondAlert(hSocket, 501, "So far So GOOD");
+	if (S_ISDIR(filestat.st_mode))
+	{
+		respondDirectory(hSocket, resource);
+	}
+	else if (S_ISREG(filestat.st_mode))
+	{
+		respondRegularFile(hSocket, resource, filestat.st_size);
+	}
+	else
+	{
+		respondAlert(hSocket, 403, "Invalid file mode");
+	}
 
 	free(resource);
 }
@@ -224,6 +248,86 @@ static int resolveURL(char* url, char* resolved)
 	}
 	*to = '\0';
 
-	printf("RESOLVED = %s\n", resolved);
+	//printf("RESOLVED = %s\n", resolved);
 	return (SUCCESS);
+}
+
+static void respondDirectory(int hSocket, char* resource)
+{
+	char header[256];
+	char length[100];
+	char* content = (char*) malloc (2048);
+	DIR* dirp;
+	struct dirent* dp;
+
+	printf("(%d) <= %s\n", hSocket, resource);
+
+	memset(content, '\0', sizeof(content));
+	strcat(content, "<html>\n <head><title>Directory Listing</title></head>\n\
+			<body><h1>Directory Listing:</h1><hr/>\n");
+
+	dirp = opendir(resource);
+	while((dp = readdir(dirp)) != NULL)
+	{
+		if (dp->d_name[0] == '.') continue;
+		strcat(content, "<a href='./");
+		strcat(content, dp->d_name);
+		strcat(content, "'>");
+		strcat(content, dp->d_name);
+		strcat(content, "</a><br/>\n");
+	}
+
+	strcat(content, "</body></html>\r\n");
+
+	generateStatusLine(200, header);
+	strcat(header, "Server: Mokonzi\r\n");
+	strcat(header, "Content-Type: text/html\r\n");
+	sprintf(length, R_LENGTH, strlen(content));
+	strcat(header, length);
+	strcat(header, "\r\n");
+
+	write(hSocket, header, strlen(header)+1);
+	write(hSocket, content, strlen(content)+1);
+
+	free(content);
+}
+
+static void respondRegularFile(int hSocket, char* resource, int size)
+{
+	char header[200];
+//	char*
+
+	respondAlert(hSocket, 501, "TODO return a file");
+//	string r_content = "";
+//  if(url.rfind(".html") == url.length() - 5)
+// /   r_content = "Content-Type: text/html\r\n";
+//  else if(url.rfind(".txt") == url.length() - 4)
+//    r_content = "Content-Type: text/plain\r\n";
+//  else if(url.rfind(".jpg") == url.length() - 4)
+//    r_content = "Content-Type: image/jpeg\r\n";
+//  else if(url.rfind(".gif") == url.length() - 4)
+//    r_content = "Content-Type: image/gif\r\n";
+//  else {
+//    string error_message = "Server could not serve that file type";
+//    RetError(hSocket,error_message,500);
+//    return;
+// / }
+//  string r_status = "HTTP/1.0 200 OK\r\n";
+//  string r_server = "Server: Mokonzi v.131\r\n";
+//  char s_length[] = "\0\0\0\0\0\0\0";
+//  sprintf(s_length,"%d",size);
+//  string r_length = "Content-Length: " + string(s_length) + "\r\n\r\n";
+//  write(hSocket,r_status.c_str(),r_status.length());
+//  write(hSocket,r_server.c_str(),r_server.length());
+//  write(hSocket,r_content.c_str(),r_content.length());
+//  write(hSocket,r_length.c_str(),r_length.length());
+//  ifstream is;
+//  is.open(url.c_str());
+//  while(is.good()) {
+//    char c = is.get();
+//    if(is.good())
+//      write(hSocket,&c,1);
+//  }
+//  is.close();
+
 }
