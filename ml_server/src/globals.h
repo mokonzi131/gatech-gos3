@@ -9,7 +9,7 @@
 #define	SUCCESS					0
 #define	CMD_INPUTS_ERROR		-1
 #define SERVER_ERROR			-2
-#define SOCKET_ERROR			-3
+#define SOCKET_ERROR			-1
 #define INIT_SERVER_ERROR		-4
 #define CHECK_DIR_ERROR			-5
 #define SAFEQ_ERROR				-6

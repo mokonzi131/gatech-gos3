@@ -6,9 +6,10 @@
 #define ML_CLIENT
 
 typedef enum {
-	SUCCESS,
-	FAILURE,
-	CMD_INPUTS_ERROR
+	SOCKET_ERROR = -1,
+	SUCCESS = 0,
+	FAILURE = -1,
+	CMD_INPUTS_ERROR = -2,
 } ml_error_t;
 
 ml_error_t ml_client(char*, unsigned short int, unsigned int, unsigned int);

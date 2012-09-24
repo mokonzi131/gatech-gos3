@@ -5,8 +5,14 @@
 #include "client.h"
 
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <string.h>
+#include <netdb.h>
 
 /// DATA ///
+static int hSocket;
 
 /// PRIVATE INTERFACE ///
 static ml_error_t initialize(char*, unsigned short int, unsigned int, unsigned int);
@@ -43,6 +49,46 @@ ml_error_t ml_client(char* server, unsigned short int port, unsigned int workers
 /// IMPLEMENTATION ///
 static ml_error_t initialize(char* server, unsigned short int port, unsigned int workers, unsigned int requests)
 {
+	struct hostent* pHostInfo;
+	struct sockaddr_in Address;
+	long nHostAddress;
+	char pBuffer[100];
+	unsigned nReadAmount;
+	char strHostName[255];
+	int nHostPort = port;
+
+	hSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (hSocket == SOCKET_ERROR)
+	{
+		printf("ERROR: Could not make a socket\n");
+		return (FAILURE);
+	}
+
+	strcpy(strHostName, server);
+	pHostInfo = gethostbyname(strHostName);
+	memcpy(&nHostAddress, pHostInfo->h_addr, pHostInfo->h_length);
+
+	Address.sin_addr.s_addr = nHostAddress;
+	Address.sin_port = htons(nHostPort);
+	Address.sin_family = AF_INET;
+
+	printf("Connecting to %s on port %d\n", strHostName, nHostPort);
+	if (connect(hSocket, (struct sockaddr*)&Address, sizeof(Address)) == SOCKET_ERROR)
+	{
+		printf("Could not connect to host\n");
+		return (FAILURE);
+	}
+
+	write (hSocket, "GET / HTTP/1.0\r\n\r\n", 23);
+	nReadAmount = read(hSocket, pBuffer, 1024);
+	printf("Read %d: %s\n", nReadAmount, pBuffer);
+
+	if (close(hSocket) == SOCKET_ERROR)
+	{
+		printf("Couldn't close socket\n");
+		return (FAILURE);
+	}
+
 	// set variables
 	// check access to server
 	// build a list of file URL's
@@ -59,70 +105,3 @@ static ml_error_t run(void)
 	// stop timer
 	return (FAILURE);
 }
-
-    int hSocket;                 /* handle to socket */
-    struct hostent* pHostInfo;   /* holds info about a machine */
-    struct sockaddr_in Address;  /* Internet socket address stuct */
-    long nHostAddress;
-    char pBuffer[BUFFER_SIZE];
-    unsigned nReadAmount;
-    char strHostName[HOST_NAME_SIZE];
-    int nHostPort;
-
-    if(argc < 3)
-      {
-	printf("\nUsage: client host-name host-port\n");
-	return 0;
-      }
-    else
-      {
-	strcpy(strHostName,argv[1]);
-	nHostPort=atoi(argv[2]);
-      }
-
-    printf("\nMaking a socket");
-    /* make a socket */
-    hSocket=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
-
-    if(hSocket == SOCKET_ERROR)
-    {
-        printf("\nCould not make a socket\n");
-        return 0;
-    }
-
-    /* get IP address from name */
-    pHostInfo=gethostbyname(strHostName);
-    /* copy address into long */
-    memcpy(&nHostAddress,pHostInfo->h_addr,pHostInfo->h_length);
-
-    /* fill address struct */
-    Address.sin_addr.s_addr=nHostAddress;
-    Address.sin_port=htons(nHostPort);
-    Address.sin_family=AF_INET;
-
-    printf("\nConnecting to %s on port %d",strHostName,nHostPort);
-
-    /* connect to host */
-    if(connect(hSocket,(struct sockaddr*)&Address,sizeof(Address))
-       == SOCKET_ERROR)
-    {
-        printf("\nCould not connect to host\n");
-        return 0;
-    }
-
-    /* read from socket into buffer
-    ** number returned by read() and write() is the number of bytes
-    ** read or written, with -1 being that an error occured */
-    nReadAmount=read(hSocket,pBuffer,BUFFER_SIZE);
-    printf("\nReceived \"%s\" from server\n",pBuffer);
-    /* write what we received back to the server */
-    write(hSocket,pBuffer,nReadAmount);
-    printf("\nWriting \"%s\" to server",pBuffer);
-
-    printf("\nClosing socket\n");
-    /* close socket */
-    if(close(hSocket) == SOCKET_ERROR)
-    {
-        printf("\nCould not close socket\n");
-        return 0;
-    }
