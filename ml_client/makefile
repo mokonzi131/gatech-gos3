@@ -11,7 +11,7 @@ OPTIONS = -g -Wall -pthread
 
 # OBJ RULES #
 obj/main.o : src/main.c
-	gcc $(OPTINOS) -c src/main.c -o obj/main.o
+	gcc $(OPTIONS) -c src/main.c -o obj/main.o
 obj/client.o : src/client.c
 	gcc $(OPTIONS) -c src/client.c -o obj/client.o
 obj/data.o : src/data.c
