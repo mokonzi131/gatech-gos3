@@ -7,7 +7,7 @@ OBJ = obj/main.o \
 		obj/safeq.o \
 		obj/http.o
 
-OPTIONS = -g -Wall -pthread
+OPTIONS = -Wall -pthread
 #DEBUG = -g
 
 # OBJ RULES #

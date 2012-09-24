@@ -260,8 +260,9 @@ static void respondDirectory(int hSocket, char* resource)
 	char* content = (char*) malloc (1024);
 	DIR* dirp;
 	struct dirent* dp;
+	struct stat st;
 
-	printf("(%d) <= %s\n", hSocket, resource);
+	//printf("(%d) <= %s\n", hSocket, resource);
 
 	memset(content, '\0', sizeof(content));
 	strcat(content, "<html>\n <head><title>Directory Listing</title></head>\n\
@@ -271,10 +272,15 @@ static void respondDirectory(int hSocket, char* resource)
 	while((dp = readdir(dirp)) != NULL)
 	{
 		if (dp->d_name[0] == '.') continue;
-		strcat(content, "<a href='/");
+		strcat(content, "<a href='");
 		strcat(content, dp->d_name);
+		lstat(dp->d_name, &st);
+		if (S_ISDIR(st.st_mode))
+			strcat(content, "/");
 		strcat(content, "'>");
 		strcat(content, dp->d_name);
+		if (S_ISDIR(st.st_mode))
+			strcat(content, "/");
 		strcat(content, "</a><br/>\n");
 	}
 
@@ -299,13 +305,14 @@ static void respondRegularFile(int hSocket, char* resource, int size)
 	char length[100];
 	FILE* file;
 
+	// Create and send the header
 	generateStatusLine(200, header);
 	strcat(header, "Server: Mokonzi\r\n");
-	if (strstr(resource, ".http") == strlen(resource) - 5)
+	if (strstr(resource, ".http") == (char*)strlen(resource) - 5)
 		strcat(header, "Content-Type: text/html\r\n");
-	else if (strstr(resource, ".jpg") == strlen(resource) - 4)
+	else if (strstr(resource, ".jpg") == (char*)strlen(resource) - 4)
 		strcat(header, "Content-Type: image/jpeg\r\n");
-	else if (strstr(resource, ".gif") == strlen(resource) - 4)
+	else if (strstr(resource, ".gif") == (char*)strlen(resource) - 4)
 		strcat(header, "Content-Type: image/gif\r\n");
 	else
 		strcat(header, "Content-Type: text/plain\r\n");
@@ -315,6 +322,7 @@ static void respondRegularFile(int hSocket, char* resource, int size)
 
 	write(hSocket, header, strlen(header));
 
+	// Connect the file to the socket and Blast it through!!! <3 sendfile()
 	file = fopen(resource, "r");
 	if (file != NULL)
 	{
