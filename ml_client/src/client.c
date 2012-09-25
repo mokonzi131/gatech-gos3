@@ -14,10 +14,13 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <unistd.h>
+#include <errno.h>
+#include <fcntl.h>
 
 /// DATA ///
 static struct sockaddr_in RemoteAddress;
-static const ml_DEFAULT_WORKERS = 5;
+static const int ml_DEFAULT_WORKERS = 5;
 static pthread_t* workerPool;
 static ml_client_worker* workerArgs;
 static int workerPoolSize;
@@ -60,7 +63,7 @@ ml_error_t ml_client(char* server, unsigned short int port, unsigned int workers
 }
 
 /// IMPLEMENTATION ///
-static ml_error_t initialize(char* server, unsigned short int port, unsigned int workers, unsigned int requests)
+static ml_error_t initialize(char* server, unsigned short int port, unsigned int workers, unsigned int requests) /// TODO build file tree
 {
 	struct hostent* host;
 	long hostAddress;
@@ -75,12 +78,12 @@ static ml_error_t initialize(char* server, unsigned short int port, unsigned int
 	RemoteAddress.sin_port = htons(port);
 	RemoteAddress.sin_family = AF_INET;
 
-	initSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if (connect(initSocket, (struct sockaddr*)&RemoteAddress, sizeof(RemoteAddress)) == SOCKET_ERROR)
-	{
-		printf("ERROR: Could not open connection to remote server\n");
-		return (FAILURE);
-	}
+	//initSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	//if (connect(initSocket, (struct sockaddr*)&RemoteAddress, sizeof(RemoteAddress)) == SOCKET_ERROR)
+	//{
+	//	printf("ERROR: Could not open connection to remote server\n");
+	//	return (FAILURE);
+	//}
 
 	// build list of indexing url's
 	// TODO
@@ -104,18 +107,18 @@ static ml_error_t initialize(char* server, unsigned short int port, unsigned int
 		workerArgs[i].tid = i;
 		workerArgs[i].numberRequests = requests;
 		workerArgs[i].successes = 0;
+		workerArgs[i].bytesRead = 0;
 		if ((pthread_create(&workerPool[i], &attr, ml_client_work, (void*)&workerArgs[i])) != SUCCESS)
 		{
 			printf("ERROR: Failed to create thread (%d)", i);
 			return (FAILURE);
 		}
 	}
-	// SIGNAL CONDITION
 
 	return (SUCCESS);
 }
 
-static ml_error_t run(void)
+static ml_error_t run(void) /// TODO add timer
 {
 	void* status;
 	int i, rc;
@@ -125,7 +128,6 @@ static ml_error_t run(void)
 	{
 		printf("READY\n");
 		ready = true;
-		sleep(1);
 		printf("GO!\n"); /// -> start timer
 	}
 	pthread_mutex_unlock(&m_ready);
@@ -153,6 +155,7 @@ static void* ml_client_work(void* input)
 	ml_error_t status = SUCCESS;
 	ml_client_worker* data = (ml_client_worker*) input;
 	char buffer[1024];
+	int bytes = 0;
 
 	// wait for the signal from the main thread before starting (for timing purposes)
 	pthread_mutex_lock(&m_ready);
@@ -160,30 +163,32 @@ static void* ml_client_work(void* input)
 		pthread_cond_wait(&c_start, &m_ready);
 	pthread_mutex_unlock(&m_ready);
 
-	// send the requests
+	// send the requests, count bytes returned
 	printf("Worker %d handling %d requests\n", data->tid, data->numberRequests);
 	while (data->numberRequests > 0)
 	{
-		data->hSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-		if (connect(data->hSocket, (struct sockaddr*)&RemoteAddress, sizeof(RemoteAddress)) == SOCKET_ERROR)
-		{
-			continue;
-		}
-		write(data->hSocket, "GET / HTTP/1.0\r\n\r\n", 23);
-		while(read(data->hSocket, buffer, 1024) > 0);
-		++(data->successes);
 		--(data->numberRequests);
-	}
-	printf("Worker %d had %d successes\n", data->tid, data->successes);
-//	nReadAmount = read(hSocket, pBuffer, 1024);
-//	printf("Read %d: %s\n", nReadAmount, pBuffer);
 
-//	if (close(hSocket) == SOCKET_ERROR)
-//	{
-//		printf("Couldn't close socket\n");
-//		return (FAILURE);
-//	}
-	//close(data->hSocket);
+		if((data->hSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == SOCKET_ERROR)
+			continue;
+		if (connect(data->hSocket, (struct sockaddr*)&RemoteAddress, sizeof(RemoteAddress)) == SOCKET_ERROR)
+			continue;
+
+		fcntl(data->hSocket, F_SETFL, (fcntl(data->hSocket, F_GETFL) | O_NONBLOCK));
+		write(data->hSocket, "GET / HTTP/1.0\r\n\r\n", 23);
+		while(1)
+		{
+			bytes = read(data->hSocket, buffer, 1024);
+			if (bytes >= 0) data->bytesRead += bytes;
+			else if (bytes == -1 && errno == (EAGAIN | EWOULDBLOCK)) continue;
+			else break;
+		}
+		++(data->successes);
+
+		if(close(data->hSocket) == SOCKET_ERROR)
+			printf("FAIL\n");
+	}
+	printf("Worker %d had %d successes and read %d bytes\n", data->tid, data->successes, data->bytesRead);
 
 	pthread_exit((void*) status);
 }

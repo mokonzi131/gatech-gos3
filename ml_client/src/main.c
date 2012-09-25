@@ -85,8 +85,8 @@ static ml_error_t setArguments(int argc, char** argv)
 	{/// TODO remove this temp section for production
 		ARG_server = "localhost";
 		ARG_port = 51115;
-		ARG_numWorkers = 5;
-		ARG_numRequests = 100;
+		ARG_numWorkers = 10;
+		ARG_numRequests = 10;
 	}
 		//return (CMD_INPUTS_ERROR);
 

@@ -17,6 +17,7 @@ typedef struct {
 	unsigned int numberRequests;
 	int hSocket;
 	int successes;
+	long bytesRead;
 } ml_client_worker;
 
 ml_error_t ml_client(char*, unsigned short int, unsigned int, unsigned int);
