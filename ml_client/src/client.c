@@ -29,18 +29,20 @@ static pthread_attr_t attr;
 static pthread_mutex_t m_ready;
 static pthread_cond_t c_start;
 static bool ready = false;
+static unsigned int numFiles = 1;
+static char* call = "GET /file%d.html HTTP/1.0\r\n\r\n";
 
 /// PRIVATE INTERFACE ///
-static ml_error_t initialize(char*, unsigned short int, unsigned int, unsigned int);
+static ml_error_t initialize(char*, unsigned short int, unsigned int, unsigned int, unsigned int);
 static ml_error_t run(void);
 static void* ml_client_work(void*);
 
 /// PUBLIC INTERFACE ///
-ml_error_t ml_client(char* server, unsigned short int port, unsigned int workers, unsigned int requests)
+ml_error_t ml_client(char* server, unsigned short int port, unsigned int workers, unsigned int requests, unsigned int files)
 {
 	ml_error_t result;
 
-	result = initialize(server, port, workers, requests);
+	result = initialize(server, port, workers, requests, files);
 	switch(result)
 	{
 		case (SUCCESS):
@@ -64,11 +66,16 @@ ml_error_t ml_client(char* server, unsigned short int port, unsigned int workers
 }
 
 /// IMPLEMENTATION ///
-static ml_error_t initialize(char* server, unsigned short int port, unsigned int workers, unsigned int requests) /// TODO build file tree
+static ml_error_t initialize(char* server, unsigned short int port, unsigned int workers, unsigned int requests, unsigned int files) /// TODO build file tree
 {
 	struct hostent* host;
 	long hostAddress;
 	int i; //initSocket, i;
+
+	// files setup
+	if (files > 0)
+		numFiles = files;
+	printf("Files: %d\n", files);
 
 	// Setup connection to the remote server
 	printf("Testing Connnetion to %s on port %d\n", server, port);
@@ -167,6 +174,7 @@ static void* ml_client_work(void* input)
 	ml_client_worker* data = (ml_client_worker*) input;
 	char buffer[1024];
 	int bytes = 0;
+	char request[1024];
 
 	// wait for the signal from the main thread before starting (for timing purposes)
 	pthread_mutex_lock(&m_ready);
@@ -185,7 +193,8 @@ static void* ml_client_work(void* input)
 		if (connect(data->hSocket, (struct sockaddr*)&RemoteAddress, sizeof(RemoteAddress)) == SOCKET_ERROR)
 			continue;
 
-		write(data->hSocket, "GET / HTTP/1.0\r\n\r\n", 23);
+		sprintf(request, call, (rand() / ( RAND_MAX / numFiles + 1 )));
+		write(data->hSocket, request, strlen(request));
 		fcntl(data->hSocket, F_SETFL, (fcntl(data->hSocket, F_GETFL) | O_NONBLOCK));
 		while(1)
 		{

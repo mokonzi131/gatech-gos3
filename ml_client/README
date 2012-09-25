@@ -18,14 +18,22 @@ Other Make Commands:
 
 To Run:
 
-	./bin/client -s server -p port -w num_workers -r num_requests
+	./bin/client -s server -p port -w num_workers -r num_requests -f files
 
 -s server : name of the server on the network
 -p port : port number where the server is listening
 -w num_workers : how many worker threads should make a request
 -r num_requests : how many requests each worker should make
+-f files : number (>0) of files in the dest to examine
 
 NOTE: the current implementation expects the server to be running in a directory
-containing a bunch of files called file#.* where # is a number and * is any
-appropriate file-type ending
+containing a bunch of files called file#.html where # is a number.
+The server can serve any sort of directory, but in this client implementation the specific
+directory with the specific files is expected.
+
+Process:
+	create a directory of files {file#.html} where # is 1..50 for instance
+	cp ml_server/bin/server into this directory
+	run the server, giving it the appropriate commands
+	run ml_client/bin/client giving it the appropriate commands, with -f 50 as the num_files command
 
