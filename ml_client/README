@@ -25,3 +25,7 @@ To Run:
 -w num_workers : how many worker threads should make a request
 -r num_requests : how many requests each worker should make
 
+NOTE: the current implementation expects the server to be running in a directory
+containing a bunch of files called file#.* where # is a number and * is any
+appropriate file-type ending
+
