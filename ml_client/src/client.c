@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <time.h>
 
 /// DATA ///
 static struct sockaddr_in RemoteAddress;
@@ -67,7 +68,7 @@ static ml_error_t initialize(char* server, unsigned short int port, unsigned int
 {
 	struct hostent* host;
 	long hostAddress;
-	int initSocket, i;
+	int i; //initSocket, i;
 
 	// Setup connection to the remote server
 	printf("Testing Connnetion to %s on port %d\n", server, port);
@@ -122,13 +123,15 @@ static ml_error_t run(void) /// TODO add timer
 {
 	void* status;
 	int i, rc;
+	clock_t t0, t1;
+	long total = 0;
+	float seconds = 0;
 
 	// TODO setup timer
 	pthread_mutex_lock(&m_ready);
 	{
-		printf("READY\n");
 		ready = true;
-		printf("GO!\n"); /// -> start timer
+		t0 = clock();
 	}
 	pthread_mutex_unlock(&m_ready);
 	pthread_cond_broadcast(&c_start);
@@ -140,7 +143,15 @@ static ml_error_t run(void) /// TODO add timer
 		rc = pthread_join(workerPool[i], &status);
 		if (rc) printf("ERROR RC\n");
 	}
-	printf("FINISHED\n"); /// -> stop timer
+	t1 = clock();
+
+	// report results
+	for(i = 0; i < workerPoolSize; ++i)
+		total += workerArgs[i].bytesRead;
+	seconds = (float)(t1 - t0)/CLOCKS_PER_SEC;
+	printf("TIME: %f seconds\n", seconds);
+	printf("Bytes: %ld B\n", total);
+	printf("B/s: %f\n", (float)total/seconds);
 
 	// cleanup
 	free(workerPool);
@@ -174,8 +185,8 @@ static void* ml_client_work(void* input)
 		if (connect(data->hSocket, (struct sockaddr*)&RemoteAddress, sizeof(RemoteAddress)) == SOCKET_ERROR)
 			continue;
 
-		fcntl(data->hSocket, F_SETFL, (fcntl(data->hSocket, F_GETFL) | O_NONBLOCK));
 		write(data->hSocket, "GET / HTTP/1.0\r\n\r\n", 23);
+		fcntl(data->hSocket, F_SETFL, (fcntl(data->hSocket, F_GETFL) | O_NONBLOCK));
 		while(1)
 		{
 			bytes = read(data->hSocket, buffer, 1024);
@@ -188,7 +199,7 @@ static void* ml_client_work(void* input)
 		if(close(data->hSocket) == SOCKET_ERROR)
 			printf("FAIL\n");
 	}
-	printf("Worker %d had %d successes and read %d bytes\n", data->tid, data->successes, data->bytesRead);
+	printf("Worker %d had %d successes and read %ld bytes\n", data->tid, data->successes, data->bytesRead);
 
 	pthread_exit((void*) status);
 }

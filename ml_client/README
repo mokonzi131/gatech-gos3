@@ -1,2 +1,27 @@
-TODO
+Project: ml_client
+
+	Interacts with ml_server to measure throughput and bytes received
+
+Author: Michael Landes
+
+	This code is for CS 8803 (GOS) GaTech Fall 2012
+	There are no copywrights, no usage restrictions, and no guarentees :)
+
+To Build:
+
+	./make bin
+
+Other Make Commands:
+
+	./make clean
+
+
+To Run:
+
+	./bin/client -s server -p port -w num_workers -r num_requests
+
+-s server : name of the server on the network
+-p port : port number where the server is listening
+-w num_workers : how many worker threads should make a request
+-r num_requests : how many requests each worker should make
 

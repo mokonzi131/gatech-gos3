@@ -32,6 +32,7 @@ int main(int argc, char** argv)
 		printf("  -w num_wokers : a reasonable number of workers to use\n");
 		printf("  -r num_request : a reasonable number of requests to use per worker\n");
 		printf("\n");
+		return result;
 	}
 
 	// run client
@@ -82,13 +83,13 @@ static ml_error_t setArguments(int argc, char** argv)
 
 	// reject if extra commands are present
 	if (optind != 9)
-	{/// TODO remove this temp section for production
-		ARG_server = "localhost";
-		ARG_port = 51115;
-		ARG_numWorkers = 10;
-		ARG_numRequests = 10;
-	}
-		//return (CMD_INPUTS_ERROR);
+		return (CMD_INPUTS_ERROR);
+//	{/// TODO remove this temp section for production
+//		ARG_server = "localhost";
+//		ARG_port = 51115;
+//		ARG_numWorkers = 10;
+//		ARG_numRequests = 100;
+//	}
 
 	return (SUCCESS);
 }
