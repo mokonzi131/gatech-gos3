@@ -1,6 +1,10 @@
-Project: ml_server
+Project: ml_proxy
 
-	Mokonzi: A simplified http server that implemets a basic GET request using a boss-worker multi-threaded design.
+	A simple proxy server. In the basic form, the proxy will simply forward absolute HTTP requests to the real server
+		and return the result to the client/requestor.
+	By setting a flag, advanced mode can be enabled. In this case, the proxy server will determine if a request is
+		addressed to a locally hosted ml_server. If so, it will use shared memory to return the result, rather than
+		the typical TCP stack.
 
 Author: Michael Landes
 
@@ -15,14 +19,12 @@ Other Make Commands:
 
 	./make clean
 
-
 To Run:
 
-	./bin/server
+	./bin/proxy
 
-usage: ./bin/server [-p port] [-r root_directory] [-w workers]
- 
- 	[-p port] : valid (1-65535) port on which to listen (default is 51115)
- 	[-r root_directory] : directory to serve (default is ./)
- 	[-w workers] : a reasonable (1-50) number of workers to use (default is 5)
+usage: ./bin/proxy [-p port] [-w workers] [-s]
 
+	[-p port] : valid (1-65535) port on which to listen (default is 50080)
+	[-w workers] : a reasonable (1-50) number of worker threads to use (default is 5)
+	[-s] : enable sharing mode (efficient proxy server)

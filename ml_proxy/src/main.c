@@ -1,34 +1,33 @@
 // Michael Landes
 // GaTech : GOS : Project 1
 ///////////////////////////
-#include "globals.h"
-
 #include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <assert.h>
+//#include <unistd.h>
+//#include <string.h>
+//#include <assert.h>
 #include <stdlib.h>
-#include <signal.h>
+//#include <signal.h>
 
-#include "server.h"
+//#include "server.h"
 
-/* DATA */
+/// DATA ///
 static unsigned short int port = 0;
 static char* root = NULL;
 static unsigned int workers = 0;
 
-/* PRIVATE INTERFACE */
+/// PRIVATE INTERFACE ///
 static int setArguments(int, char**);
 static void signal_callback_handler(int);
 
-/* MAIN */
+/// MAIN ///
 int main(int argc, char** argv)
 {
 	int result;
 
-	assert(sizeof(unsigned short int) == 2);
-	assert(sizeof(char) == 1);
-
+	printf("Hello World\n");
+	exit(0);
+}
+/*
    // Register signal and signal handler
    signal(SIGINT, signal_callback_handler);
 
@@ -58,16 +57,16 @@ int main(int argc, char** argv)
 
 	printf("\n");
 	return result;
-}
+} */
 
 /* IMPLEMENTATION */
-static void signal_callback_handler(int signum)
-{
-	ml_server_shutDown();
-}
+//static void signal_callback_handler(int signum)
+//{
+//	ml_server_shutDown();
+//}
 
-static int setArguments(int argc, char** argv)
-{
+//static int setArguments(int argc, char** argv)
+/*{
 	int check;
 	int index;
 	int test;
@@ -103,4 +102,4 @@ static int setArguments(int argc, char** argv)
 		return (CMD_INPUTS_ERROR);
 
 	return (SUCCESS);
-}
+}*/
