@@ -8,6 +8,7 @@
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <signal.h>
 
 #include "server.h"
 
@@ -18,6 +19,7 @@ static unsigned int workers = 0;
 
 /* PRIVATE INTERFACE */
 static int setArguments(int, char**);
+static void signal_callback_handler(int);
 
 /* MAIN */
 int main(int argc, char** argv)
@@ -26,6 +28,9 @@ int main(int argc, char** argv)
 
 	assert(sizeof(unsigned short int) == 2);
 	assert(sizeof(char) == 1);
+
+   // Register signal and signal handler
+   signal(SIGINT, signal_callback_handler);
 
 	// parse command line
 	result = setArguments(argc, argv);
@@ -44,7 +49,7 @@ int main(int argc, char** argv)
 	switch(result)
 	{
 		case (SUCCESS):
-			printf("TERMINATING Server\n");
+			printf("...TERMINATING Server\n");
 			break;
 		case (SERVER_ERROR):
 		default:
@@ -56,6 +61,11 @@ int main(int argc, char** argv)
 }
 
 /* IMPLEMENTATION */
+static void signal_callback_handler(int signum)
+{
+	ml_server_shutDown();
+}
+
 static int setArguments(int argc, char** argv)
 {
 	int check;

@@ -28,6 +28,8 @@ const unsigned int ml_WORKERS_MAX = 50;
 
 static const unsigned int BACKLOG = 20;
 
+static int terminate = 0;
+
 static char* rootDirectory;
 static int hServerSocket;
 static struct sockaddr_in ServerAddress;
@@ -70,6 +72,12 @@ int ml_server(unsigned short int port, const char* root, unsigned int workers)
 char* ml_server_getRootDir()
 {
 	return rootDirectory;
+}
+
+void ml_server_shutDown()
+{
+	shutdown(hServerSocket, 0);
+	terminate = 1;
 }
 
 /* IMPLEMENTATION */
@@ -167,7 +175,7 @@ static int run(void)
 	int nAddressSize = sizeof(struct sockaddr_in);
 
 	printf("RUNNING Server...\n");
-	while(1)
+	while(!terminate)
 	{
 		hSocket = accept(hServerSocket, (struct sockaddr*)&ClientAddress, (socklen_t*)&nAddressSize);
 		//printf("(socket %d) <- New connection from (machine %s) on (port %d)\n", hSocket, inet_ntoa(ClientAddress.sin_addr), ntohs(ClientAddress.sin_port));

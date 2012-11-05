@@ -1,4 +1,5 @@
 *.cbp
+*.layout
 */bin/*
 */obj/*
 
