@@ -1,5 +1,5 @@
 // Michael Landes
-// GaTech : GOS : Project 1
+// GaTech : GOS : Project 2
 ///////////////////////////
 
 #ifndef ML_WORKER

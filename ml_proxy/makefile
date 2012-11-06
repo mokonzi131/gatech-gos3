@@ -2,9 +2,9 @@
 EXE = bin/proxy
 
 OBJ = obj/main.o \
-		obj/proxy.o
-#		obj/worker.o \
-#		obj/safeq.o \
+		obj/proxy.o \
+		obj/safeq.o \
+		obj/worker.o
 #		obj/http.o
 
 OPTIONS = -g -Wall -pthread
@@ -15,10 +15,10 @@ obj/main.o : src/main.c
 	gcc $(OPTIONS) -c src/main.c -o obj/main.o
 obj/proxy.o : src/proxy.c
 	gcc $(OPTIONS) -c src/proxy.c -o obj/proxy.o
-#obj/worker.o : src/worker.c
-#	gcc $(OPTIONS) -c src/worker.c -o obj/worker.o
-#obj/safeq.o : src/safeq.c
-#	gcc $(OPTIONS) -c src/safeq.c -o obj/safeq.o
+obj/safeq.o : src/safeq.c
+	gcc $(OPTIONS) -c src/safeq.c -o obj/safeq.o
+obj/worker.o : src/worker.c
+	gcc $(OPTIONS) -c src/worker.c -o obj/worker.o
 #obj/http.o : src/http.c
 #	gcc $(OPTIONS) -c src/http.c -o obj/http.o
 

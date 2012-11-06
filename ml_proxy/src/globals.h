@@ -12,5 +12,6 @@
 #define DEFAULT_PROXY_WORKERS	5
 #define MAX_WORKERS				50
 #define ERROR					-1
+#define SAFEQ_ERROR				-2
 
 #endif

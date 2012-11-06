@@ -1,61 +1,74 @@
 // Michael Landes
-// GaTech : GOS : Project 1
+// GaTech : GOS : Project 2
 ///////////////////////////
 #include "globals.h"
 
 #include "worker.h"
 
 #include <stdio.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <string.h>
-#include <stdlib.h>
+//#include <unistd.h>
+//#include <sys/types.h>
+//#include <sys/socket.h>
+//#include <netinet/in.h>
+//#include <arpa/inet.h>
+//#include <string.h>
+//#include <stdlib.h>
 
 #include "safeq.h"
-#include "http.h"
+//#include "http.h"
 
 /* DATA */
-static const int BUFFER_SIZE = 1024;
-static char FAILURE_TO_INTERPRET[] = "SERVER failed to interpret your request, closing connection\n";
+//static const int BUFFER_SIZE = 1024;
+//static char FAILURE_TO_INTERPRET[] = "SERVER failed to interpret your request, closing connection\n";
 //static char UNHANDLED_PROTOCOL[] = "SERVER does not implement your protocol, closing connection\n";
 
 /* PRIVATE INTERFACE */
-static void processConnection(int, char[]);
+//static void processConnection(int, char[]);
 
 /* PUBLIC INTERFACE */
 void* ml_worker(void* argument)
 {
-	//int tid = *((int*)argument);;
-	unsigned int hSocket = 0;
-	char inBuffer[BUFFER_SIZE];
+	int tid = *((int*)argument);
+	unsigned int h_socket = 0;
 
-	//printf("Hello World from thread (%d)\n", tid);
+	printf("hello worker %d\n", tid);
 
 	while(1)
 	{
-		hSocket = ml_safeq_get();
+		h_socket = ml_safeq_get();
+		if (h_socket == 0) break;
 
-		//printf("Thread (%d) handling socket (%d)\n", tid, hSocket);
-
-		processConnection(hSocket, inBuffer);
-		//usleep(50000);
-
-		// close socket and move on
-        if (close(hSocket) == SOCKET_ERROR)
-        {
-			printf("ERROR: Failed to close the socket\n");
-			//return -1; (no error return, simply move on)
-        }
-		hSocket = 0;
+		printf("Thread (%d) handling socket (%d)\n", tid, h_socket);
 	}
 
-	return NULL;
+	return 0;
+//	unsigned int hSocket = 0;
+//	char inBuffer[BUFFER_SIZE];
+
+//	//printf("Hello World from thread (%d)\n", tid);
+
+//	while(1)
+//	{
+//		hSocket = ml_safeq_get();
+
+//		//printf("Thread (%d) handling socket (%d)\n", tid, hSocket);
+
+//		processConnection(hSocket, inBuffer);
+//		//usleep(50000);
+
+//		// close socket and move on
+//        if (close(hSocket) == SOCKET_ERROR)
+//        {
+//			printf("ERROR: Failed to close the socket\n");
+//			//return -1; (no error return, simply move on)
+//        }
+//		hSocket = 0;
+//	}
+
+//	return NULL;
 }
 
-/* IMPLEMENTATION */
+/* IMPLEMENTATION
 static void processConnection(int hSocket, char inBuffer[])
 {
 	int result;
@@ -86,3 +99,4 @@ static void processConnection(int hSocket, char inBuffer[])
 	ml_http_processHTTPRequest(hSocket, inBuffer, statusLine);
 	free(statusLine);
 }
+*/
