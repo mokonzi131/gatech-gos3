@@ -10,6 +10,7 @@
 #define DEFAULT_PROXY_PORT		50080
 #define MAX_PORT				65535
 #define DEFAULT_PROXY_WORKERS	5
+#define MAX_WORKERS				50
 #define ERROR					-1
 
 #endif

@@ -80,7 +80,7 @@ static int setArgs(int argc, char** argv)
 				break;
 			case 'w':
 				test = atoi(optarg);
-				if (test <= 0 || test > 50)
+				if (test <= 0 || test > MAX_WORKERS)
 					return (INPUT_PARSE_ERROR);
 				workers = test;
 				break;

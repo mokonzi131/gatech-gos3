@@ -5,7 +5,7 @@
 
 #include "proxy.h"
 
-//#include <stdio.h>
+#include <stdio.h>
 //#include <stdlib.h>
 //#include <assert.h>
 //#include <string.h>
@@ -20,45 +20,29 @@
 //#include "worker.h"
 //#include "safeq.h"
 
-int ml_proxy(unsigned short int port, unsigned int workers, int shared)
-{
-	return (ERROR);
-}
-void ml_proxy_shutdown() {}
+#define INIT_ERROR		-2
+#define RUN_ERROR		-3
 
-/* DATA
-const unsigned short int ml_DEFAULT_PORT_NUMBER = 51115;
-const unsigned short int ml_PORT_MAX = 65535;
-const unsigned int ml_DEFAULT_WORKERS_NUMBER = 5;
-const unsigned int ml_WORKERS_MAX = 50;
+/// DATA ///
+static int TERMINATE = 0;
 
-static const unsigned int BACKLOG = 20;
-
-static int terminate = 0;
-
-static char* rootDirectory;
-static int hServerSocket;
-static struct sockaddr_in ServerAddress;
-static unsigned int workers;
-static pthread_t* workerPool;
-static int* workerArgs;
-
-/* PRIVATE INTERFACE
-static int initialize(unsigned short int, const char*, unsigned int);
+/// PRIVATE INTERFACE ///
+static int initialize(unsigned short int port, unsigned int workers, int shared);
 static int run(void);
+static int teardown(void);
 
-/* PUBLIC INTERFACE
-int ml_server(unsigned short int port, const char* root, unsigned int workers)
+/// PUBLIC INTERFACE ///
+int ml_proxy(unsigned short int port, unsigned int workers, int shared)
 {
 	int result;
 
-	result = initialize(port, root, workers);
+	result = initialize(port, workers, shared);
 	switch(result)
 	{
 		case (SUCCESS):
 			break;
 		default:
-			printf("ERROR: Could not initialize the server\n");
+			printf("PROXY: Failed to Initialize the proxy server...\n");
 			return result;
 	}
 
@@ -68,23 +52,53 @@ int ml_server(unsigned short int port, const char* root, unsigned int workers)
 		case (SUCCESS):
 			break;
 		default:
-			printf("ERROR: Server is down\n");
+			printf("PROXY: Proxy server failed while running...\n");
+			return result;
+	}
+
+	result = teardown();
+	switch(result)
+	{
+		case (SUCCESS):
+			break;
+		default:
+			printf("PROXY: Illegal state during proxy teardown...\n");
 			return result;
 	}
 
 	return result;
 }
 
-char* ml_server_getRootDir()
+void ml_proxy_shutdown()
 {
-	return rootDirectory;
+	//shutdown(hServerSocket, 0);
+	TERMINATE = 1;
 }
 
-void ml_server_shutDown()
+/// IMPLEMENTATAION ///
+static int initialize(unsigned short int port, unsigned int workers, int shared)
 {
-	shutdown(hServerSocket, 0);
-	terminate = 1;
+	return (INIT_ERROR);
 }
+static int run(void)
+{
+	while(!TERMINATE);
+	return (RUN_ERROR);
+}
+static int teardown(void)
+{
+	return (ERROR);
+}
+
+/* DATA
+static const unsigned int BACKLOG = 20;
+
+static char* rootDirectory;
+static int hServerSocket;
+static struct sockaddr_in ServerAddress;
+static unsigned int workers;
+static pthread_t* workerPool;
+static int* workerArgs;*/
 
 /* IMPLEMENTATION
 static int initialize(unsigned short int port, const char* root, unsigned int _workers)
