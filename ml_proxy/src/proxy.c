@@ -1,26 +1,32 @@
 // Michael Landes
-// GaTech : GOS : Project 1
+// GaTech : GOS : Project 2
 ///////////////////////////
 #include "globals.h"
 
-#include "server.h"
+#include "proxy.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <pthread.h>
+//#include <stdio.h>
+//#include <stdlib.h>
+//#include <assert.h>
+//#include <string.h>
+//#include <sys/types.h>
+//#include <sys/socket.h>
+//#include <netinet/in.h>
+//#include <arpa/inet.h>
+//#include <unistd.h>
+//#include <sys/stat.h>
+//#include <pthread.h>
 
-#include "worker.h"
-#include "safeq.h"
+//#include "worker.h"
+//#include "safeq.h"
 
-/* DATA */
+int ml_proxy(unsigned short int port, unsigned int workers, int shared)
+{
+	return (ERROR);
+}
+void ml_proxy_shutdown() {}
+
+/* DATA
 const unsigned short int ml_DEFAULT_PORT_NUMBER = 51115;
 const unsigned short int ml_PORT_MAX = 65535;
 const unsigned int ml_DEFAULT_WORKERS_NUMBER = 5;
@@ -37,11 +43,11 @@ static unsigned int workers;
 static pthread_t* workerPool;
 static int* workerArgs;
 
-/* PRIVATE INTERFACE */
+/* PRIVATE INTERFACE
 static int initialize(unsigned short int, const char*, unsigned int);
 static int run(void);
 
-/* PUBLIC INTERFACE */
+/* PUBLIC INTERFACE
 int ml_server(unsigned short int port, const char* root, unsigned int workers)
 {
 	int result;
@@ -80,7 +86,7 @@ void ml_server_shutDown()
 	terminate = 1;
 }
 
-/* IMPLEMENTATION */
+/* IMPLEMENTATION
 static int initialize(unsigned short int port, const char* root, unsigned int _workers)
 {
 	int nAddressSize = sizeof(struct sockaddr_in);
@@ -184,3 +190,4 @@ static int run(void)
 
 	return 0;
 }
+*/

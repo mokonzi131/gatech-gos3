@@ -1,20 +1,20 @@
 # VARIABLES #
 EXE = bin/proxy
 
-OBJ = obj/main.o
-#		obj/server.o \
+OBJ = obj/main.o \
+		obj/proxy.o
 #		obj/worker.o \
 #		obj/safeq.o \
 #		obj/http.o
 
-OPTIONS = -Wall -pthread
+OPTIONS = -g -Wall -pthread
 #DEBUG = -g
 
 # OBJ RULES #
 obj/main.o : src/main.c
 	gcc $(OPTIONS) -c src/main.c -o obj/main.o
-#obj/server.o : src/server.c
-#	gcc $(OPTIONS) -c src/server.c -o obj/server.o
+obj/proxy.o : src/proxy.c
+	gcc $(OPTIONS) -c src/proxy.c -o obj/proxy.o
 #obj/worker.o : src/worker.c
 #	gcc $(OPTIONS) -c src/worker.c -o obj/worker.o
 #obj/safeq.o : src/safeq.c

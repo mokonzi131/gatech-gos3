@@ -1,105 +1,100 @@
 // Michael Landes
-// GaTech : GOS : Project 1
+// GaTech : GOS : Project 2
 ///////////////////////////
-#include <stdio.h>
-//#include <unistd.h>
-//#include <string.h>
-//#include <assert.h>
-#include <stdlib.h>
-//#include <signal.h>
+#include "globals.h"
 
-//#include "server.h"
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <signal.h>
+
+#include "proxy.h"
+
+#define INPUT_PARSE_ERROR		-2
 
 /// DATA ///
 static unsigned short int port = 0;
-static char* root = NULL;
 static unsigned int workers = 0;
+static int shared = 0;
 
 /// PRIVATE INTERFACE ///
-static int setArguments(int, char**);
-static void signal_callback_handler(int);
+static int setArgs(int, char**);
+static void h_interrupt(int);
 
 /// MAIN ///
 int main(int argc, char** argv)
 {
-	int result;
+	int result = 0;
 
-	printf("Hello World\n");
-	exit(0);
-}
-/*
-   // Register signal and signal handler
-   signal(SIGINT, signal_callback_handler);
+	// Register signal and signal handler
+	signal(SIGINT, h_interrupt);
 
 	// parse command line
-	result = setArguments(argc, argv);
+	result = setArgs(argc, argv);
 	if (result != SUCCESS)
 	{
-		printf("usage: %s [-p port] [-r root_directory] [-w workers]\n", argv[0]);
-		printf("  [-p port] : valid (1-%d) port on which to listen (default is %d)\n", ml_PORT_MAX, ml_DEFAULT_PORT_NUMBER);
-		printf("  [-r root_directory] : directory to serve (default is ./)\n");
-		printf("  [-w workers] : a reasonable (1-%d) number of workers to use (default is %d)\n", ml_WORKERS_MAX, ml_DEFAULT_WORKERS_NUMBER);
+		printf("usage: %s [-p port] [-w workers] [-s]\n", argv[0]);
+		printf("  [-p port] : valid (1-%d) port on which to listen. (default = %d)\n", MAX_PORT, DEFAULT_PROXY_PORT);
+		printf("  [-w workers] : a reasonable (1-50) number of worker threads to use. (default = %d)\n", DEFAULT_PROXY_WORKERS);
+		printf("  [-s] : enable shared mode (efficient proxy server)\n");
 		printf("\n");
 		return result;
 	}
 
-	// launch the server
-	result = ml_server(port, root, workers);
+	// launch the proxy server
+	result = ml_proxy(port, workers, shared);
 	switch(result)
 	{
 		case (SUCCESS):
-			printf("...TERMINATING Server\n");
 			break;
-		case (SERVER_ERROR):
 		default:
-			printf("Server FAILED! TERMINATING...\n");
+			printf("MAIN: [ml_proxy] terminated unexpectedly...\n");
 	}
 
 	printf("\n");
 	return result;
-} */
+}
 
-/* IMPLEMENTATION */
-//static void signal_callback_handler(int signum)
-//{
-//	ml_server_shutDown();
-//}
+/// IMPLEMENTATION ///
+static void h_interrupt(int signum)
+{
+	ml_proxy_shutdown();
+}
 
-//static int setArguments(int argc, char** argv)
-/*{
+static int setArgs(int argc, char** argv)
+{
 	int check;
 	int index;
 	int test;
 
-	// set appropriate arguments from command line, reject on mal-formed input
-	while ((check = getopt(argc, argv, "p:r:w:")) != -1)
+	// set command line inputs, reject a mal-formed input
+	while((check = getopt(argc, argv, "p:w:s")) != ERROR)
 	{
 		switch(check)
 		{
 			case 'p':
 				test = atoi(optarg);
-				if (test <= 0 || test > ml_PORT_MAX)
-					return (CMD_INPUTS_ERROR);
+				if (test <= 0 || test > MAX_PORT)
+					return (INPUT_PARSE_ERROR);
 				port = test;
-				break;
-			case 'r':
-				root = optarg;
 				break;
 			case 'w':
 				test = atoi(optarg);
-				if (test <= 0 || test > ml_WORKERS_MAX)
-					return (CMD_INPUTS_ERROR);
+				if (test <= 0 || test > 50)
+					return (INPUT_PARSE_ERROR);
 				workers = test;
+				break;
+			case 's':
+				shared = 1;
 				break;
 			case '?':
 			default:
-				return (CMD_INPUTS_ERROR);
+				return (INPUT_PARSE_ERROR);
 		}
 	}
 
-	// reject if extra commands are present
 	for (index = optind; index < argc; ++index)
-		return (CMD_INPUTS_ERROR);
+		return (INPUT_PARSE_ERROR);
 
 	return (SUCCESS);
-}*/
+}

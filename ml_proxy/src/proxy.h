@@ -1,9 +1,12 @@
 // Michael Landes
-// GaTech : GOS : Project 1
+// GaTech : GOS : Project 2
 ///////////////////////////
 
-#ifndef ML_SERVER
-#define ML_SERVER
+#ifndef ML_PROXY
+#define ML_PROXY
+
+int ml_proxy(unsigned short int, unsigned int, int);
+void ml_proxy_shutdown();
 
 /// (port number, directory to serve, number of threads) ///
 int ml_server(const unsigned short int, const char*, const unsigned int);
