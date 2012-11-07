@@ -13,5 +13,6 @@
 #define MAX_WORKERS				50
 #define ERROR					-1
 #define SAFEQ_ERROR				-2
+#define IO_BUF_SIZE 			1000
 
 #endif

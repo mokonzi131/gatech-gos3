@@ -7,14 +7,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-//#include <assert.h>
-//#include <string.h>
-//#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-//#include <unistd.h>
-//#include <sys/stat.h>
+#include <unistd.h>
 #include <pthread.h>
 
 #include "worker.h"
@@ -71,7 +67,7 @@ int ml_proxy(unsigned short int port, unsigned int workers, int shared)
 
 void ml_proxy_shutdown()
 {
-	shutdown(p_socket, 0);
+	shutdown(p_socket, SHUT_RDWR);
 	TERMINATE = 1;
 }
 
@@ -102,7 +98,7 @@ static int initialize(unsigned short int port, unsigned int workers, int shared)
 	p_address.sin_family = AF_INET;
 	if (bind(p_socket, (struct sockaddr*)&p_address, sizeof(p_address)) == ERROR)
 	{
-		printf("INIT: Failed to bind socket to port...\n");
+		printf("INIT: Failed to bind socket to port (%d)...\n", p_port);
 		return (INIT_ERROR);
 	}
 
@@ -155,8 +151,8 @@ static int run(void)
 	{
 		h_socket = accept(p_socket, (struct sockaddr*)&ClientAddress, &size);
 		if (h_socket <= 0) continue;
-		printf("(socket %d) <- New connection from (machine %s) on port %d\n", h_socket, inet_ntoa(ClientAddress.sin_addr), ntohs(ClientAddress.sin_port));
-		//ml_safeq_put(h_socket);
+		//printf("(socket %d) <- New connection from (machine %s) on port %d\n", h_socket, inet_ntoa(ClientAddress.sin_addr), ntohs(ClientAddress.sin_port));
+		ml_safeq_put(h_socket);
 	}
 
 	return (SUCCESS);
@@ -165,7 +161,7 @@ static int run(void)
 static void teardown(void)
 {
 	int i;
-	int rc;
+	//int rc;
 	void* status;
 
 	printf("PROXY SERVER TEARDOWN...\n");
@@ -174,11 +170,13 @@ static void teardown(void)
 	for (i = 0; i < p_workers; ++i) ml_safeq_put(0);
 	for (i = 0; i < p_workers; ++i)
 	{
-		rc = pthread_join(p_workerPool[i], &status);
+		//rc = pthread_join(p_workerPool[i], &status);
+		pthread_join(p_workerPool[i], &status);
 	}
 
-	int ml_safeq_teardown(void);
+	ml_safeq_teardown();
 
 	free(p_workerPool);
 	free(p_workerArgs);
+	close(p_socket);
 }

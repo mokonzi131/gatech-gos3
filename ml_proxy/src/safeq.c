@@ -32,7 +32,7 @@ static pthread_cond_t c_isSpace; /// _put waits for space in the q
 /* PUBLIC INTERFACE */
 int ml_safeq_initialize(void)
 {
-	sockets.array = (unsigned int*) malloc (sizeof(int) * INITIAL_CAPACITY);
+	sockets.array = (unsigned int*) malloc (sizeof(unsigned int) * INITIAL_CAPACITY);
 	sockets.front = sockets.back = sockets.array;
 	sockets.capacity = INITIAL_CAPACITY;
 	sockets.size = 0;

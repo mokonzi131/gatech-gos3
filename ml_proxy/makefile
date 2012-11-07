@@ -4,8 +4,8 @@ EXE = bin/proxy
 OBJ = obj/main.o \
 		obj/proxy.o \
 		obj/safeq.o \
-		obj/worker.o
-#		obj/http.o
+		obj/worker.o \
+		obj/http.o
 
 OPTIONS = -g -Wall -pthread
 #DEBUG = -g
@@ -19,8 +19,8 @@ obj/safeq.o : src/safeq.c
 	gcc $(OPTIONS) -c src/safeq.c -o obj/safeq.o
 obj/worker.o : src/worker.c
 	gcc $(OPTIONS) -c src/worker.c -o obj/worker.o
-#obj/http.o : src/http.c
-#	gcc $(OPTIONS) -c src/http.c -o obj/http.o
+obj/http.o : src/http.c
+	gcc $(OPTIONS) -c src/http.c -o obj/http.o
 
 # EXECUTABLE RULES #
 $(EXE) : $(OBJ)
@@ -28,9 +28,6 @@ $(EXE) : $(OBJ)
 
 # MAKE TARGETS #
 bin : $(EXE)
-
-#test : $(EXE)
-#	cp $(EXE) test/server
 
 clean :
 	rm -f obj/*.o
