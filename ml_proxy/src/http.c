@@ -263,7 +263,7 @@ void ml_http_sendProxyError(int hSocket, const char* message)
 //
 //	memset(content, '\0', sizeof(content));
 //	strcat(content, "<html>\n <head><title>Directory Listing</title></head>\n\
-//			<body><h1>Directory Listing:</h1><hr/>\n");
+////			<body><h1>Directory Listing:</h1><hr/>\n");
 //
 //	dirp = opendir(resource);
 //	while((dp = readdir(dirp)) != NULL)
