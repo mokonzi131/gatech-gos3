@@ -98,8 +98,8 @@ static void processConnection(int hSocket, char* buffer)
 
 static void processProxyRequest(int hClient, char* buffer, RequestStatus* client_status)
 {
-	char request[512];
-	char clientName[124];
+	char request[IO_BUF_SIZE];
+	char clientName[IO_BUF_SIZE];
 	struct hostent hostbuf;
 	struct hostent* hp;
 	size_t hostbuflen = 1024;
@@ -108,6 +108,7 @@ static void processProxyRequest(int hClient, char* buffer, RequestStatus* client
 	int herr;
 
 	strncpy(clientName, client_status->host, client_status->host_len);
+	clientName[client_status->host_len] = '\0';
 	printf("%s\n", clientName);
 	while ((res = gethostbyname2_r(clientName, AF_INET,
 			&hostbuf, tmphostbuf, hostbuflen,
@@ -132,8 +133,6 @@ static void processProxyRequest(int hClient, char* buffer, RequestStatus* client
 	RemoteAddress.sin_port = htons(client_status->port);
 	RemoteAddress.sin_family = AF_INET;
 
-	hServer = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-
 	// formulate server request
 	sprintf(request, "GET %.*s HTTP/1.0\r\n", client_status->uri_len, client_status->uri);
 	sprintf(request + strlen(request), "Host: %.*s:%d\r\n",
@@ -141,18 +140,30 @@ static void processProxyRequest(int hClient, char* buffer, RequestStatus* client
 	sprintf(request + strlen(request), "User-Agent: ML_PROXY/1.0\r\n\r\n");
 
 	// send server request
-	if (connect(hServer, (struct sockaddr*)&RemoteAddress, sizeof(RemoteAddress)) != (SUCCESS))
+	if ((hServer = socket(AF_INET, SOCK_STREAM, IPPROTO_IP)) == (ERROR))
 	{
-		ml_http_sendProxyError(hClient, "ML_PROXY: Failed to connect to remote server...");
+		ml_http_sendProxyError(hClient, "ML_PROXY: Failed to open a socket, aborting...");
 		return;
 	}
-	write(hServer, request, strlen(request));
+	if (connect(hServer, (struct sockaddr*)&RemoteAddress, sizeof(RemoteAddress)) != (SUCCESS))
+	{
+		ml_http_sendProxyError(hClient, "ML_PROXY: Failed to connect to remote server, aborting...");
+		return;
+	}
+	if (send(hServer, request, strlen(request), 0) == (ERROR))
+	{
+		ml_http_sendProxyError(hClient, "ML_PROXY: Failed to send request to remote server, aborting...");
+		return;
+	}
+	shutdown(hServer, SHUT_WR);
 
 	// pipe response back to client
 	int bytes = 0;
 	while((bytes = read(hServer, buffer, IO_BUF_SIZE)) > 0)
 	{
-		write(hClient, buffer, strlen(buffer));
+		write(hClient, buffer, bytes);
 		//printf("%s", buffer);
 	}
+
+	close(hServer);
 }
