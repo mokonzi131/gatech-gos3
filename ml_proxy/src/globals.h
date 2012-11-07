@@ -14,5 +14,6 @@
 #define ERROR					-1
 #define SAFEQ_ERROR				-2
 #define IO_BUF_SIZE 			1000
+#define TIMEOUT_SEC				20
 
 #endif

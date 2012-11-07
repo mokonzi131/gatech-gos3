@@ -20,6 +20,7 @@ static int shared = 0;
 /// PRIVATE INTERFACE ///
 static int setArgs(int, char**);
 static void h_interrupt(int);
+static void h_pipe(int);
 
 /// MAIN ///
 int main(int argc, char** argv)
@@ -28,6 +29,7 @@ int main(int argc, char** argv)
 
 	// Register signal and signal handler
 	signal(SIGINT, h_interrupt);
+	signal(SIGPIPE, h_pipe);
 
 	// parse command line
 	result = setArgs(argc, argv);
@@ -59,6 +61,11 @@ int main(int argc, char** argv)
 static void h_interrupt(int signum)
 {
 	ml_proxy_shutdown();
+}
+
+static void h_pipe(int signum)
+{
+	return;
 }
 
 static int setArgs(int argc, char** argv)

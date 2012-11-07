@@ -18,11 +18,10 @@
 #include "http.h"
 
 /// DATA ///
-//static char FAILURE_TO_INTERPRET[] = "SERVER failed to interpret your request, closing connection\n";
-//static char UNHANDLED_PROTOCOL[] = "SERVER does not implement your protocol, closing connection\n";
 
 /// PRIVATE INTERFACE ///
-static void processConnection(int h_socket, char* readBuffer);
+static void processConnection(int h_socket, char* readBuffer, char* writeBuffer);
+static void processProxyRequest(int hSocket, char* inBuffer, char* outBuffer, RequestStatus* client_status);
 
 /// PUBLIC INTERFACE ///
 void* ml_worker(void* argument)
@@ -30,6 +29,7 @@ void* ml_worker(void* argument)
 	//int tid = *((int*)argument);
 	unsigned int h_socket = 0;
 	char* readBuffer = (char*) malloc (IO_BUF_SIZE * sizeof(char));
+	char* writeBuffer = (char*) malloc (IO_BUF_SIZE * sizeof(char));
 
 	//printf("hello worker %d\n", tid);
 
@@ -40,60 +40,79 @@ void* ml_worker(void* argument)
 
 		//printf("Thread (%d) handling socket (%d)\n", tid, h_socket);
 		//usleep(100000);
-		processConnection(h_socket, readBuffer);
+		processConnection(h_socket, readBuffer, writeBuffer);
 
-		shutdown(h_socket, SHUT_RDWR);
+		// the great shutdown mystery...???
+		//shutdown(h_socket, SHUT_WR);
 		close(h_socket);
-		h_socket = 0;
 	}
 
 	free(readBuffer);
+	free(writeBuffer);
 	//printf("goodbye worker %d\n", tid);
 	return 0;
 }
 
 /// IMPLEMENTATION ///
-static void processConnection(int hSocket, char inBuffer[])
+static void processConnection(int hSocket, char* inBuffer, char* outBuffer)
 {
 	int count = 0;
-	ProxyRequest request;
+	RequestStatus client_status;
 
-	// read and parse request
-	count = read(hSocket, inBuffer, IO_BUF_SIZE);
-	ml_http_parseRequest(&request, inBuffer, count);
+	struct timeval tv;
+	tv.tv_sec = TIMEOUT_SEC;
+	tv.tv_usec = 0;
+	setsockopt(hSocket, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, sizeof tv);
 
-	// dump request data to console
-	printf("%d chars = [%s]\n", count, inBuffer);
-	printf("==========\n");
-	if (request.status == (SUCCESS)) printf("status = SUCCESS\n");
+	// read once from client
+	if ((count = read(hSocket, inBuffer, IO_BUF_SIZE)) < 0)
+	{
+		ml_http_sendProxyError(hSocket, "ML_PROXY: Timing out after waiting for data...");
+		return;
+	}
+	//printf("%d chars = [%.*s]\n", count, count, inBuffer);
+
+	// parse client header, validate
+	ml_http_parseStatus(&client_status, inBuffer, count);
+	if (client_status.status != (SUCCESS))
+	{
+		ml_http_sendProxyError(hSocket, "ML_PROXY: Failed to parse request...");
+		return;
+	}
+
+	// make sure it fits our standards for a 'proxy request'
+	if (client_status.method != GET) /// HTTP protocol assumed because spec is [GET <path>\r\n]
+	{
+		ml_http_sendProxyError(hSocket, "ML_PROXY: Invalid method type...");
+		return;
+	}
+	if (client_status.schema != HTTP)
+	{
+		ml_http_sendProxyError(hSocket, "ML_PROXY: Invalid schema type...");
+		return;
+	}
+
+	processProxyRequest(hSocket, inBuffer, outBuffer, &client_status);
+}
+
+static void processProxyRequest(int hSocket, char* inBuffer, char* outBuffer, RequestStatus* client_status)
+{
+
+	// formulate server request
+
+	// send server request
+
+	// pass response back to client
+
+	// dump client_status data to console
+	if (client_status->status == (SUCCESS)) printf("status = SUCCESS\n");
 	else printf("status = ERROR\n");
-	if (request.method == GET) printf("method = GET\n");
+	if (client_status->method == GET) printf("method = GET\n");
 	else printf("method = UNHANDLED\n");
-	if (request.schema == HTTP) printf("schema = HTTP\n");
+	if (client_status->schema == HTTP) printf("schema = HTTP\n");
 	else printf("schema = UNHANDLED\n");
-	printf("host = %.*s\n", request.host_len, request.host);
-	printf("port = %d\n", request.port);
-	printf("uri = %.*s\n", request.uri_len, request.uri);
+	printf("host = %.*s\n", client_status->host_len, client_status->host);
+	printf("port = %d\n", client_status->port);
+	printf("uri = %.*s\n", client_status->uri_len, client_status->uri);
 
-//	// read the request, if there is no request line, END
-//	result = ml_http_readLine(hSocket, inBuffer);
-//	if (result != SUCCESS)
-//	{
-//		write(hSocket, FAILURE_TO_INTERPRET, strlen(FAILURE_TO_INTERPRET)+1);
-//		return;
-//	}
-
-///	// if protocol is not HTTP, return un-handled protocol message END
-///	if (!ml_http_isHTTP(inBuffer))
-///	{
-///		write(hSocket, UNHANDLED_PROTOCOL, strlen(UNHANDLED_PROTOCOL)+1);
-///		return;
-///	}
-/// removed because the specs ask us to handle request in format: [GET <path>\r\n]
-
-	// call processHTTPRequest()
-//	statusLine = (char*) malloc (sizeof(char) * (strlen(inBuffer)+1));
-//	strcpy(statusLine, inBuffer);
-//	ml_http_processHTTPRequest(hSocket, inBuffer, statusLine);
-//	free(statusLine);
 }
