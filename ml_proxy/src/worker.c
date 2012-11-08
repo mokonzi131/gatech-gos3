@@ -20,9 +20,9 @@
 #include "http.h"
 
 /// PRIVATE INTERFACE ///
-static void processConnection(int h_socket, char* buffer);
-static void processProxyRequest(int hSocket, char* buffer, RequestStatus* client_status);
-static void proxySocket(int hClient, int hServer, char* buffer, char* request);
+static void processConnection(int hClient, char* buffer);
+static void processProxyRequest(int hClient, char* buffer, RequestStatus* client_status);
+static void proxySocket(int hClient, int hServer, char* buffer, RequestStatus* client_status);
 static void proxyShared();
 
 /// PUBLIC INTERFACE ///
@@ -51,7 +51,7 @@ void* ml_worker(void* argument)
 }
 
 /// IMPLEMENTATION ///
-static void processConnection(int hSocket, char* buffer)
+static void processConnection(int hClient, char* buffer)
 {
 	int count = 0;
 	RequestStatus client_status;
@@ -59,12 +59,12 @@ static void processConnection(int hSocket, char* buffer)
 	struct timeval tv;
 	tv.tv_sec = TIMEOUT_SEC;
 	tv.tv_usec = 0;
-	setsockopt(hSocket, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, sizeof tv);
+	setsockopt(hClient, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, sizeof tv);
 
 	// read once from client
-	if ((count = read(hSocket, buffer, IO_BUF_SIZE)) < 0)
+	if ((count = read(hClient, buffer, IO_BUF_SIZE)) < 0)
 	{
-		ml_http_sendProxyError(hSocket, "ML_PROXY: Timing out after waiting for data...");
+		ml_http_sendProxyError(hClient, "ML_PROXY: Timing out after waiting for data...");
 		return;
 	}
 	//printf("%d chars = [%.*s]\n", count, count, buffer);
@@ -73,7 +73,7 @@ static void processConnection(int hSocket, char* buffer)
 	ml_http_parseStatus(&client_status, buffer, count);
 	if (client_status.status != (SUCCESS))
 	{
-		ml_http_sendProxyError(hSocket, "ML_PROXY: Failed to parse request...");
+		ml_http_sendProxyError(hClient, "ML_PROXY: Failed to parse request...");
 		return;
 	}
 	client_status.port = client_status.port <= 0 || client_status.port > MAX_PORT ? 80 : client_status.port;
@@ -81,16 +81,17 @@ static void processConnection(int hSocket, char* buffer)
 	// make sure it fits our standards for a 'proxy request'
 	if (client_status.method != GET) /// HTTP protocol assumed because spec is [GET <path>\r\n]
 	{
-		ml_http_sendProxyError(hSocket, "ML_PROXY: Invalid method type...");
+		ml_http_sendProxyError(hClient, "ML_PROXY: Invalid method type...");
 		return;
 	}
 	if (client_status.schema != HTTP)
 	{
-		ml_http_sendProxyError(hSocket, "ML_PROXY: Invalid schema type...");
+		ml_http_sendProxyError(hClient, "ML_PROXY: Invalid schema type...");
 		return;
 	}
 
-	processProxyRequest(hSocket, buffer, &client_status);
+	// handle a proxy GET request
+	processProxyRequest(hClient, buffer, &client_status);
 }
 
 static void processProxyRequest(int hClient, char* buffer, RequestStatus* client_status)
@@ -99,7 +100,6 @@ static void processProxyRequest(int hClient, char* buffer, RequestStatus* client
 	tv.tv_sec = TIMEOUT_SEC;
 	tv.tv_usec = 0;
 
-	char request[IO_BUF_SIZE];
 	char clientName[124];
 	char clientPort[8];
 
@@ -108,17 +108,11 @@ static void processProxyRequest(int hClient, char* buffer, RequestStatus* client
 	struct addrinfo* result;
 	struct sockaddr_in* remoteaddr;
 
-	// get string references to the host and the port, build the request
+	// get string references to the host and the port
 	strncpy(clientName, client_status->host, client_status->host_len);
 	clientName[client_status->host_len] = '\0';
 	memset(clientPort, 0, sizeof(clientPort));
 	sprintf(clientPort, "%d", client_status->port);
-
-	// formulate server request
-	sprintf(request, "GET %.*s HTTP/1.0\r\n", client_status->uri_len, client_status->uri);
-	sprintf(request + strlen(request), "Host: %.*s:%d\r\n",
-			client_status->host_len, client_status->host, client_status->port);
-	sprintf(request + strlen(request), "User-Agent: ML_PROXY/1.0\r\n\r\n");
 
 	// find the remote server
 	memset(&hints, 0, sizeof(struct addrinfo));
@@ -134,8 +128,7 @@ static void processProxyRequest(int hClient, char* buffer, RequestStatus* client
 
 	// retrieve the remote address, and hServer
 	remoteaddr = (struct sockaddr_in*)result->ai_addr;
-	printf("getaddrinfo: %s => %s:%ld\n", clientName, inet_ntoa(remoteaddr->sin_addr), ntohs(remoteaddr->sin_port));
-
+	//printf("getaddrinfo: %s => %s:%ld\n", clientName, inet_ntoa(remoteaddr->sin_addr), ntohs(remoteaddr->sin_port));
 	if ((hServer = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == (ERROR))
 	{
 		ml_http_sendProxyError(hClient, "ML_PROXY: Failed to open a socket, aborting...");
@@ -157,7 +150,7 @@ static void processProxyRequest(int hClient, char* buffer, RequestStatus* client
 	}
 	else
 	{
-		proxySocket(hClient, hServer, buffer, request);
+		proxySocket(hClient, hServer, buffer, client_status);
 	}
 
 cleanup:
@@ -165,9 +158,16 @@ cleanup:
 	close(hServer);
 }
 
-static void proxySocket(int hClient, int hServer, char* buffer, char* request)
+static void proxySocket(int hClient, int hServer, char* buffer, RequestStatus* client_status)
 {
+	char request[IO_BUF_SIZE];
 	int bytes = 0;
+
+	// construct the request
+	sprintf(request, "GET %.*s HTTP/1.0\r\n", client_status->uri_len, client_status->uri);
+	sprintf(request + strlen(request), "Host: %.*s:%d\r\n",
+			client_status->host_len, client_status->host, client_status->port);
+	sprintf(request + strlen(request), "User-Agent: ML_PROXY/1.0\r\n\r\n");
 
 	// send request to server
 	if (send(hServer, request, strlen(request), 0) == (ERROR))
