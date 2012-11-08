@@ -7,11 +7,11 @@
 
 #include <stdio.h>
 #include <unistd.h>
-//#include <sys/types.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
-//#include <arpa/inet.h>
+#include <arpa/inet.h>
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -19,33 +19,30 @@
 #include "safeq.h"
 #include "http.h"
 
-/// DATA ///
-
 /// PRIVATE INTERFACE ///
 static void processConnection(int h_socket, char* buffer);
 static void processProxyRequest(int hSocket, char* buffer, RequestStatus* client_status);
+static void proxySocket(int hClient, int hServer, char* buffer, char* request);
+static void proxyShared();
 
 /// PUBLIC INTERFACE ///
 void* ml_worker(void* argument)
 {
 	//int tid = *((int*)argument);
-	unsigned int h_socket = 0;
+	unsigned int hClient = 0;
 	char* buffer = (char*) malloc (IO_BUF_SIZE * sizeof(char));
-
 	//printf("hello worker %d\n", tid);
 
 	while(1)
 	{
-		h_socket = ml_safeq_get();
-		if (h_socket == 0) break;
+		hClient = ml_safeq_get();
+		if (hClient == 0) break;
 
-		//printf("Thread (%d) handling socket (%d)\n", tid, h_socket);
-		//usleep(100000);
-		processConnection(h_socket, buffer);
+		//printf("Thread (%d) handling socket (%d)\n", tid, hClient);
+		if (!TERMINATE)
+			processConnection(hClient, buffer);
 
-		// the great shutdown mystery...???
-		//shutdown(h_socket, SHUT_WR);
-		close(h_socket);
+		close(hClient);
 	}
 
 	free(buffer);
@@ -98,40 +95,24 @@ static void processConnection(int hSocket, char* buffer)
 
 static void processProxyRequest(int hClient, char* buffer, RequestStatus* client_status)
 {
-	char request[IO_BUF_SIZE];
-	char clientName[IO_BUF_SIZE];
-	struct hostent hostbuf;
-	struct hostent* hp;
-	size_t hostbuflen = 1024;
-	char* tmphostbuf = (char*) malloc (hostbuflen);
-	int res;
-	int herr;
+	struct timeval tv;
+	tv.tv_sec = TIMEOUT_SEC;
+	tv.tv_usec = 0;
 
+	char request[IO_BUF_SIZE];
+	char clientName[124];
+	char clientPort[8];
+
+	int hServer;
+	struct addrinfo hints;
+	struct addrinfo* result;
+	struct sockaddr_in* remoteaddr;
+
+	// get string references to the host and the port, build the request
 	strncpy(clientName, client_status->host, client_status->host_len);
 	clientName[client_status->host_len] = '\0';
-	printf("%s\n", clientName);
-	while ((res = gethostbyname2_r(clientName, AF_INET,
-			&hostbuf, tmphostbuf, hostbuflen,
-			&hp, &herr)) == ERANGE)
-			{
-				hostbuflen *= 2;
-				tmphostbuf = (char*) realloc (tmphostbuf, hostbuflen);
-			}
-	if (res || hp == NULL)
-	{
-		printf("NULL\n");
-		return;
-	}
-
-	struct sockaddr_in RemoteAddress;
-	int hServer;
-
-	long hostAddress;
-	memcpy(&hostAddress, hp->h_addr, hp->h_length);
-
-	RemoteAddress.sin_addr.s_addr = hostAddress;
-	RemoteAddress.sin_port = htons(client_status->port);
-	RemoteAddress.sin_family = AF_INET;
+	memset(clientPort, 0, sizeof(clientPort));
+	sprintf(clientPort, "%d", client_status->port);
 
 	// formulate server request
 	sprintf(request, "GET %.*s HTTP/1.0\r\n", client_status->uri_len, client_status->uri);
@@ -139,17 +120,56 @@ static void processProxyRequest(int hClient, char* buffer, RequestStatus* client
 			client_status->host_len, client_status->host, client_status->port);
 	sprintf(request + strlen(request), "User-Agent: ML_PROXY/1.0\r\n\r\n");
 
-	// send server request
-	if ((hServer = socket(AF_INET, SOCK_STREAM, IPPROTO_IP)) == (ERROR))
+	// find the remote server
+	memset(&hints, 0, sizeof(struct addrinfo));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
+
+	if (getaddrinfo(clientName, clientPort, &hints, &result) != (SUCCESS))
+	{
+		ml_http_sendProxyError(hClient, "ML_PROXY: Could not resolve server's IP address, aborting...");
+		goto cleanup;
+	}
+
+	// retrieve the remote address, and hServer
+	remoteaddr = (struct sockaddr_in*)result->ai_addr;
+	printf("getaddrinfo: %s => %s:%ld\n", clientName, inet_ntoa(remoteaddr->sin_addr), ntohs(remoteaddr->sin_port));
+
+	if ((hServer = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == (ERROR))
 	{
 		ml_http_sendProxyError(hClient, "ML_PROXY: Failed to open a socket, aborting...");
-		return;
+		goto cleanup;
 	}
-	if (connect(hServer, (struct sockaddr*)&RemoteAddress, sizeof(RemoteAddress)) != (SUCCESS))
+
+	// connect to the socket
+	if (connect(hServer, result->ai_addr, result->ai_addrlen) != (SUCCESS))
 	{
 		ml_http_sendProxyError(hClient, "ML_PROXY: Failed to connect to remote server, aborting...");
-		return;
+		goto cleanup;
 	}
+	setsockopt(hServer, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, sizeof tv);
+
+	// perform appropriate proxy task
+	if (useSharedMode(remoteaddr->sin_addr.s_addr))
+	{
+		proxyShared();
+	}
+	else
+	{
+		proxySocket(hClient, hServer, buffer, request);
+	}
+
+cleanup:
+	freeaddrinfo(result);
+	close(hServer);
+}
+
+static void proxySocket(int hClient, int hServer, char* buffer, char* request)
+{
+	int bytes = 0;
+
+	// send request to server
 	if (send(hServer, request, strlen(request), 0) == (ERROR))
 	{
 		ml_http_sendProxyError(hClient, "ML_PROXY: Failed to send request to remote server, aborting...");
@@ -157,13 +177,14 @@ static void processProxyRequest(int hClient, char* buffer, RequestStatus* client
 	}
 	shutdown(hServer, SHUT_WR);
 
-	// pipe response back to client
-	int bytes = 0;
+	//  shuttle response back to client
 	while((bytes = read(hServer, buffer, IO_BUF_SIZE)) > 0)
 	{
-		write(hClient, buffer, bytes);
-		//printf("%s", buffer);
+		if (write(hClient, buffer, bytes) == (ERROR)) continue;
 	}
+}
 
-	close(hServer);
+static void proxyShared()
+{
+	printf("sharing...\n");
 }

@@ -12,6 +12,9 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <sys/utsname.h>
+#include <netdb.h>
+
 
 #include "worker.h"
 #include "safeq.h"
@@ -20,7 +23,7 @@
 #define RUN_ERROR		-3
 
 /// DATA ///
-static int TERMINATE = 0;
+int TERMINATE = 0;
 static const unsigned int BACKLOG = 30;
 
 static unsigned short int p_port;
@@ -30,6 +33,7 @@ static int p_socket;
 static struct sockaddr_in p_address;
 static pthread_t* p_workerPool;
 static int* p_workerArgs;
+static in_addr_t local_address;
 
 /// PRIVATE INTERFACE ///
 static int initialize(unsigned short int port, unsigned int workers, int shared);
@@ -48,7 +52,7 @@ int ml_proxy(unsigned short int port, unsigned int workers, int shared)
 			break;
 		default:
 			printf("PROXY: Failed to Initialize the proxy server...\n");
-			return result;
+			goto cleanup;
 	}
 
 	result = run();
@@ -60,8 +64,8 @@ int ml_proxy(unsigned short int port, unsigned int workers, int shared)
 			printf("PROXY: Proxy server failed while running...\n");
 	}
 
+cleanup:
 	teardown();
-
 	return result;
 }
 
@@ -71,18 +75,46 @@ void ml_proxy_shutdown()
 	TERMINATE = 1;
 }
 
+int useSharedMode(in_addr_t client_addr)
+{
+	// are we supposed to share?
+	if (!p_sharedMode) return 0;
+
+	// are we on the same machine?
+	if (local_address && local_address != client_addr) return 0;
+
+	// are we compatible?
+	/// TODO
+	///\\\///\\\///\\\///
+
+	return 1;
+}
+
 /// IMPLEMENTATAION ///
 static int initialize(unsigned short int port, unsigned int workers, int shared)
 {
 	int i;
+	struct utsname myname;
 
 	printf("PROXY SERVER INITIALIZING [ml_proxy]\n");
 
 	// setup the port
 	p_port = ((port == 0 || port > MAX_PORT) ? DEFAULT_PROXY_PORT : port);
 
-	// setup shared mode
+	// setup shared mode and find local address
 	p_sharedMode = (shared ? 1 : 0);
+	local_address = 0;
+	if (uname(&myname) != (ERROR))
+	{
+		struct addrinfo* result;
+		struct sockaddr_in* address;
+		if (getaddrinfo(myname.nodename, NULL, NULL, &result) != (ERROR))
+		{
+			address = (struct sockaddr_in*)result->ai_addr;
+			local_address = address->sin_addr.s_addr;
+		}
+		freeaddrinfo(result);
+	}
 
 	// setup the socket
 	p_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -137,8 +169,8 @@ static int initialize(unsigned short int port, unsigned int workers, int shared)
 static int run(void)
 {
 	socklen_t size = sizeof(struct sockaddr_in);
-	int h_socket;
-	static struct sockaddr_in ClientAddress;
+	int hClient;
+	static struct sockaddr_in clientaddr;
 
 	getsockname(p_socket, (struct sockaddr*)&p_address, &size);
 	printf("PROXY SERVER RUNNING: [%d] workers\n", p_workers);
@@ -149,10 +181,10 @@ static int run(void)
 
 	while(!TERMINATE)
 	{
-		h_socket = accept(p_socket, (struct sockaddr*)&ClientAddress, &size);
-		if (h_socket <= 0) continue;
-		//printf("(socket %d) <- New connection from (machine %s) on port %d\n", h_socket, inet_ntoa(ClientAddress.sin_addr), ntohs(ClientAddress.sin_port));
-		ml_safeq_put(h_socket);
+		hClient = accept(p_socket, (struct sockaddr*)&clientaddr, &size);
+		if (hClient <= 0) continue;
+		//printf("(socket %d) <- New connection from (machine %s) on port %d\n", hClient, inet_ntoa(clientaddr.sin_addr), ntohs(clientaddr.sin_port));
+		ml_safeq_put(hClient);
 	}
 
 	return (SUCCESS);
