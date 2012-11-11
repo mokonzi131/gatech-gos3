@@ -65,6 +65,11 @@ static void processConnection(int hSocket, char inBuffer[])
 
 	// read the request, if there is no request line, END
 	result = ml_http_readLine(hSocket, inBuffer);
+	if (strncmp(inBuffer, "MOKONZI EST\r\n", 13) == 0)
+	{
+		write(hSocket, "NAZALI\r\n", 8);
+		result = ml_http_readLine(hSocket, inBuffer);
+	}
 	if (result != SUCCESS)
 	{
 		write(hSocket, FAILURE_TO_INTERPRET, strlen(FAILURE_TO_INTERPRET)+1);

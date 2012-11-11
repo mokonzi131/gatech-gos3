@@ -14,6 +14,7 @@
 #include <pthread.h>
 #include <sys/utsname.h>
 #include <netdb.h>
+#include <string.h>
 
 
 #include "worker.h"

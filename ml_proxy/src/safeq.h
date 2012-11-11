@@ -1,6 +1,6 @@
-// Michael Landes
-// GaTech : GOS : Project 2
-///////////////////////////
+/// Michael Landes
+/// GaTech : GOS : Project 2
+/// \\\///\\\///\\\///\\\///
 
 #ifndef ML_SAFEQ
 #define ML_SAFEQ
