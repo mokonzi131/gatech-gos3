@@ -75,8 +75,10 @@ void ml_proxy_shutdown()
 	TERMINATE = 1;
 }
 
-int useSharedMode(in_addr_t client_addr)
+int useSharedMode(in_addr_t client_addr, int hServer)
 {
+	char buffer[20];
+
 	// are we supposed to share?
 	if (!p_sharedMode) return 0;
 
@@ -84,10 +86,12 @@ int useSharedMode(in_addr_t client_addr)
 	if (local_address && local_address != client_addr) return 0;
 
 	// are we compatible?
-	/// TODO
-	///\\\///\\\///\\\///
+	write(hServer, "MOKONZI EST\r\n", 13);
+	read(hServer, buffer, sizeof(buffer));
+	if (strncmp(buffer, "NAZALI\r\n", 8) == 0)
+		return 1;
 
-	return 1;
+	return 0;
 }
 
 /// IMPLEMENTATAION ///

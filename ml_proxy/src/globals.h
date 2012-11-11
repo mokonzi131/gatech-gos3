@@ -20,6 +20,6 @@
 
 /// PROXY.C DEFINED GLOBAL ACCESS ///
 extern int TERMINATE;
-extern int useSharedMode(in_addr_t client_addr);
+extern int useSharedMode(in_addr_t client_addr, int hServer);
 
 #endif

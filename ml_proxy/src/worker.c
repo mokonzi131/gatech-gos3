@@ -144,7 +144,7 @@ static void processProxyRequest(int hClient, char* buffer, RequestStatus* client
 	}
 
 	// perform appropriate proxy task
-	if (useSharedMode(remoteaddr->sin_addr.s_addr))
+	if (useSharedMode(remoteaddr->sin_addr.s_addr, hServer))
 	{
 		proxyShared();
 	}
@@ -164,6 +164,9 @@ static void proxySocket(int hClient, int hServer, char* buffer, RequestStatus* c
 	int bytes = 0;
 
 	// construct the request
+	if (strlen("GET . HTTP/1.0\r\n") + client_status->uri_len + strlen("Host: .:.\r\n")
+		+ client_status->host_len + strlen("User-Agent: ML_PROXY/1.0\r\n\r\n") > IO_BUF_SIZE)
+		return;
 	sprintf(request, "GET %.*s HTTP/1.0\r\n", client_status->uri_len, client_status->uri);
 	sprintf(request + strlen(request), "Host: %.*s:%d\r\n",
 			client_status->host_len, client_status->host, client_status->port);
@@ -185,7 +188,7 @@ static void proxySocket(int hClient, int hServer, char* buffer, RequestStatus* c
 		bytes = write(hClient, buffer, bytes);
 	}
 
-	shutdown(hClient, 2);
+	shutdown(hClient, SHUT_WR);
 }
 
 static void proxyShared()
