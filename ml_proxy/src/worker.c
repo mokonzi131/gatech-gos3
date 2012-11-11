@@ -184,6 +184,8 @@ static void proxySocket(int hClient, int hServer, char* buffer, RequestStatus* c
 		if (bytes == (ERROR)) break;
 		bytes = write(hClient, buffer, bytes);
 	}
+
+	shutdown(hClient, 2);
 }
 
 static void proxyShared()

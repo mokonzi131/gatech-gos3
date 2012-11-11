@@ -21,6 +21,7 @@
 
 /// DATA ///
 static struct sockaddr_in RemoteAddress;
+static struct sockaddr_in ProxyAddress;
 static const int ml_DEFAULT_WORKERS = 5;
 static pthread_t* workerPool;
 static ml_client_worker* workerArgs;
@@ -31,18 +32,26 @@ static pthread_cond_t c_start;
 static bool ready = false;
 static unsigned int numFiles = 1;
 static char* call = "GET /file%d.html HTTP/1.0\r\n\r\n";
+static char* call2 = "GET http://%s:%d/file%d.html\r\n\r\n";
+static int hop = 0;
+static int _port;
+static char* _serv;
 
 /// PRIVATE INTERFACE ///
-static ml_error_t initialize(char*, unsigned short int, unsigned int, unsigned int, unsigned int);
+static ml_error_t initialize(char*, unsigned short int, unsigned int, unsigned int, unsigned int, char*);
 static ml_error_t run(void);
 static void* ml_client_work(void*);
 
 /// PUBLIC INTERFACE ///
-ml_error_t ml_client(char* server, unsigned short int port, unsigned int workers, unsigned int requests, unsigned int files)
+ml_error_t ml_client(char* server, unsigned short int port, unsigned int workers,
+					unsigned int requests, unsigned int files, char* proxy)
 {
 	ml_error_t result;
+	hop = (proxy == NULL) ? 0 : 1;
+	_port = port;
+	_serv = server;
 
-	result = initialize(server, port, workers, requests, files);
+	result = initialize(server, port, workers, requests, files, proxy);
 	switch(result)
 	{
 		case (SUCCESS):
@@ -66,10 +75,11 @@ ml_error_t ml_client(char* server, unsigned short int port, unsigned int workers
 }
 
 /// IMPLEMENTATION ///
-static ml_error_t initialize(char* server, unsigned short int port, unsigned int workers, unsigned int requests, unsigned int files) /// TODO build file tree
+static ml_error_t initialize(char* server, unsigned short int port, unsigned int workers,
+							unsigned int requests, unsigned int files, char* _proxy) /// TODO build file tree
 {
-	struct hostent* host;
-	long hostAddress;
+	struct hostent* host, *proxy;
+	long hostAddress, proxyAddress;
 	int i; //initSocket, i;
 
 	// files setup
@@ -80,11 +90,16 @@ static ml_error_t initialize(char* server, unsigned short int port, unsigned int
 	// Setup connection to the remote server
 	printf("Testing Connnetion to %s on port %d\n", server, port);
 	host = gethostbyname(server);
+	if (hop) proxy = gethostbyname(_proxy);
 	memcpy(&hostAddress, host->h_addr, host->h_length);
+	if (hop) memcpy(&proxyAddress, proxy->h_addr, proxy->h_length);
 
 	RemoteAddress.sin_addr.s_addr = hostAddress;
+	if (hop) ProxyAddress.sin_addr.s_addr = proxyAddress;
 	RemoteAddress.sin_port = htons(port);
+	if (hop) ProxyAddress.sin_port = htons(50080);
 	RemoteAddress.sin_family = AF_INET;
+	if (hop) ProxyAddress.sin_family = AF_INET;
 
 	//initSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	//if (connect(initSocket, (struct sockaddr*)&RemoteAddress, sizeof(RemoteAddress)) == SOCKET_ERROR)
@@ -190,21 +205,32 @@ static void* ml_client_work(void* input)
 
 		if((data->hSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == SOCKET_ERROR)
 			continue;
-		if (connect(data->hSocket, (struct sockaddr*)&RemoteAddress, sizeof(RemoteAddress)) == SOCKET_ERROR)
-			continue;
-
-		sprintf(request, call, (rand() / ( RAND_MAX / numFiles + 1 )));
-		write(data->hSocket, request, strlen(request));
-		fcntl(data->hSocket, F_SETFL, (fcntl(data->hSocket, F_GETFL) | O_NONBLOCK));
-		while(1)
+		if (hop)
 		{
-			bytes = read(data->hSocket, buffer, 1024);
-			if (bytes >= 0) data->bytesRead += bytes;
-			else if (bytes == -1 && errno == (EAGAIN | EWOULDBLOCK)) continue;
-			else break;
+			if (connect(data->hSocket, (struct sockaddr*)&ProxyAddress, sizeof(ProxyAddress)) == SOCKET_ERROR)
+				continue;
+		}
+		else
+		{
+			if (connect(data->hSocket, (struct sockaddr*)&RemoteAddress, sizeof(RemoteAddress)) == SOCKET_ERROR)
+				continue;
+		}
+
+		if (hop) sprintf(request, call2, _serv, _port, (rand() / ( RAND_MAX / numFiles + 1 )));
+		else sprintf(request, call, (rand() / ( RAND_MAX / numFiles + 1 )));
+		//printf("request = %s\n", request);
+
+		write(data->hSocket, request, strlen(request));
+		shutdown(data->hSocket, SHUT_WR);
+
+		while((bytes = read(data->hSocket, buffer, 1024)) != 0)
+		{
+			if (bytes == (-1)) break;
+			data->bytesRead += bytes;
 		}
 		++(data->successes);
 
+		shutdown(data->hSocket, SHUT_RD);
 		if(close(data->hSocket) == SOCKET_ERROR)
 			printf("FAIL\n");
 	}
