@@ -183,7 +183,7 @@ static int run(void)
 	{
 		hClient = accept(p_socket, (struct sockaddr*)&clientaddr, &size);
 		if (hClient <= 0) continue;
-		//printf("(socket %d) <- New connection from (machine %s) on port %d\n", hClient, inet_ntoa(clientaddr.sin_addr), ntohs(clientaddr.sin_port));
+		printf("(socket %d) <- New connection from (machine %s) on port %d\n", hClient, inet_ntoa(clientaddr.sin_addr), ntohs(clientaddr.sin_port));
 		ml_safeq_put(hClient);
 	}
 

@@ -47,7 +47,6 @@ void* ml_worker(void* argument)
         if (close(hSocket) == SOCKET_ERROR)
         {
 			printf("ERROR: Failed to close the socket\n");
-			//return -1; (no error return, simply move on)
         }
 		hSocket = 0;
 	}

@@ -20,6 +20,7 @@ static unsigned int workers = 0;
 /* PRIVATE INTERFACE */
 static int setArguments(int, char**);
 static void signal_callback_handler(int);
+static void h_pipe(int);
 
 /* MAIN */
 int main(int argc, char** argv)
@@ -31,6 +32,7 @@ int main(int argc, char** argv)
 
    // Register signal and signal handler
    signal(SIGINT, signal_callback_handler);
+   signal(SIGPIPE, h_pipe);
 
 	// parse command line
 	result = setArguments(argc, argv);
@@ -64,6 +66,10 @@ int main(int argc, char** argv)
 static void signal_callback_handler(int signum)
 {
 	ml_server_shutDown();
+}
+static void h_pipe(int signum)
+{
+	return;
 }
 
 static int setArguments(int argc, char** argv)

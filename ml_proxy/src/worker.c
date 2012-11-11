@@ -96,10 +96,6 @@ static void processConnection(int hClient, char* buffer)
 
 static void processProxyRequest(int hClient, char* buffer, RequestStatus* client_status)
 {
-	struct timeval tv;
-	tv.tv_sec = TIMEOUT_SEC;
-	tv.tv_usec = 0;
-
 	char clientName[124];
 	char clientPort[8];
 
@@ -107,6 +103,10 @@ static void processProxyRequest(int hClient, char* buffer, RequestStatus* client
 	struct addrinfo hints;
 	struct addrinfo* result;
 	struct sockaddr_in* remoteaddr;
+
+	struct timeval tv;
+	tv.tv_sec = TIMEOUT_SEC;
+	tv.tv_usec = 0;
 
 	// get string references to the host and the port
 	strncpy(clientName, client_status->host, client_status->host_len);
@@ -134,6 +134,7 @@ static void processProxyRequest(int hClient, char* buffer, RequestStatus* client
 		ml_http_sendProxyError(hClient, "ML_PROXY: Failed to open a socket, aborting...");
 		goto cleanup;
 	}
+	setsockopt(hServer, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, sizeof tv);
 
 	// connect to the socket
 	if (connect(hServer, result->ai_addr, result->ai_addrlen) != (SUCCESS))
@@ -141,7 +142,6 @@ static void processProxyRequest(int hClient, char* buffer, RequestStatus* client
 		ml_http_sendProxyError(hClient, "ML_PROXY: Failed to connect to remote server, aborting...");
 		goto cleanup;
 	}
-	setsockopt(hServer, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, sizeof tv);
 
 	// perform appropriate proxy task
 	if (useSharedMode(remoteaddr->sin_addr.s_addr))
@@ -175,12 +175,14 @@ static void proxySocket(int hClient, int hServer, char* buffer, RequestStatus* c
 		ml_http_sendProxyError(hClient, "ML_PROXY: Failed to send request to remote server, aborting...");
 		return;
 	}
+
 	shutdown(hServer, SHUT_WR);
 
 	//  shuttle response back to client
-	while((bytes = read(hServer, buffer, IO_BUF_SIZE)) > 0)
+	while((bytes = read(hServer, buffer, IO_BUF_SIZE)) != 0)
 	{
-		if (write(hClient, buffer, bytes) == (ERROR)) continue;
+		if (bytes == (ERROR)) break;
+		bytes = write(hClient, buffer, bytes);
 	}
 }
 

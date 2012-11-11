@@ -13,6 +13,8 @@
 #include <dirent.h>
 #include <sys/types.h>
 #include <sys/sendfile.h>
+#include <sys/socket.h>
+#include <errno.h>
 
 #include "server.h"
 
@@ -296,6 +298,8 @@ static void respondDirectory(int hSocket, char* resource)
 	write(hSocket, header, strlen(header));
 	write(hSocket, content, strlen(content));
 
+	shutdown(hSocket, 2);
+
 	free(content);
 }
 
@@ -329,4 +333,5 @@ static void respondRegularFile(int hSocket, char* resource, int size)
 		sendfile(hSocket, fileno(file), NULL, size);
 		fclose(file);
 	}
+	shutdown(hSocket, 2);
 }

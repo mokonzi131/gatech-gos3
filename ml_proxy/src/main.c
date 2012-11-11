@@ -1,6 +1,6 @@
-// Michael Landes
-// GaTech : GOS : Project 2
-///////////////////////////
+/// Michael Landes
+/// GaTech : GOS : Project 2
+/// \\\///\\\///\\\///\\\///
 #include "globals.h"
 
 #include <stdio.h>
