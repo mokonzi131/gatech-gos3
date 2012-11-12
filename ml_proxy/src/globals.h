@@ -33,5 +33,9 @@ typedef struct {
 	char data[SHM_BUF_SIZE - sizeof(ml_shm_header)];
 } ml_shm_block;
 
+typedef struct {
+	key_t shmkey;
+	key_t semkey;
+} ml_shm_workspace;
 
 #endif

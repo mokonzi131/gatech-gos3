@@ -16,7 +16,6 @@
 #include <netdb.h>
 #include <string.h>
 
-
 #include "worker.h"
 #include "safeq.h"
 

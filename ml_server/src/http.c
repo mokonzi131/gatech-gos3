@@ -40,6 +40,10 @@ static int generateStatusLine(int, char*);
 static void processHTTPGetRequest(int, char[], char*);
 static void respondDirectory(int, char*);
 static void respondRegularFile(int, char*, int);
+static void share(char* response, size_t total, ml_shm_block* block, int semid);
+static void beast(char* url, ml_shm_block* block, int semid);
+static void beastDirectory(char*, ml_shm_block*, int);
+static void beastFile(char*, int, ml_shm_block*, int);
 
 /* PUBLIC INTERFACE */
 int ml_http_readLine(int hSocket, char inBuffer[])
@@ -101,7 +105,6 @@ void ml_http_processSHMRequest(char inBuffer[])
 	int semid = -1;
 	void* shmaddr = (void*)-1;
 	struct shmid_ds info = {};
-	struct sembuf sb = {};
 
 	// extract datas
 	char* uri = (char*) malloc(strlen(inBuffer));
@@ -127,22 +130,36 @@ void ml_http_processSHMRequest(char inBuffer[])
 		perror("semget");
 		goto CLEANUP;
 	}
+	ml_shm_block* block = (ml_shm_block*)shmaddr;
+
+	// write response
+	beast(uri, block, semid);
+
+	block->header.done = 1;
+
+CLEANUP:
+	if (shmaddr != ((void*)-1))
+	{
+		if (shmdt(shmaddr) == (-1)) printf("SHM ERROR on detatch: %d\n", errno);
+	}
+	free(uri);
+}
+
+/* IMPLEMENTATION */
+static void share(char* response, size_t total, ml_shm_block* block, int semid)
+{
+	struct sembuf sb = {};
 	sb.sem_num = 0;
 	sb.sem_flg = 0;
 
-	// write response
-	char* response = (char*) malloc (1024 * 1024); // TODO make real...
-	memset(response, 'm', 1024 * 1024);
-	size_t total = (1024 * 1024);
 	size_t count = 0;
-	ml_shm_block* block = (ml_shm_block*)shmaddr;
 	while (count < total)
 	{
 		sb.sem_op = -1;
 		if (semop(semid, &sb, 1) == -1)
 		{
 			perror("SEM: Error in acquiring lock");
-			goto CLEANUP;
+			return;
 		}
 		/// CRITICAL ///
 		if (block->header.size == 0)
@@ -159,20 +176,11 @@ void ml_http_processSHMRequest(char inBuffer[])
 		if (semop(semid, &sb, 1) == -1)
 		{
 			perror("SEM: Error in releasing lock");
-			goto CLEANUP;
+			return;
 		}
 	}
-	block->header.done = 1;
-
-CLEANUP:
-	if (shmaddr != ((void*)-1))
-	{
-		if (shmdt(shmaddr) == (-1)) printf("SHM ERROR on detatch: %d\n", errno);
-	}
-	free(uri);
 }
 
-/* IMPLEMENTATION */
 static int respondAlert(int hSocket, int type, char* message)
 {
 	char header[256];
@@ -383,6 +391,48 @@ static void respondDirectory(int hSocket, char* resource)
 	free(content);
 }
 
+static void beastDirectory(char* resource, ml_shm_block* block, int semid)
+{
+	char header[256];
+	char length[100];
+	char* content = (char*) malloc (1024);
+	DIR* dirp;
+	struct dirent* dp;
+	struct stat st;
+
+	memset(content, '\0', sizeof(content));
+	strcat(content, "<html>\n <head><title>Directory Listing</title></head>\n\
+			<body><h1>Directory Listing:</h1><hr/>\n");
+	dirp = opendir(resource);
+	while((dp = readdir(dirp)) != NULL)
+	{
+		if (dp->d_name[0] == '.') continue;
+		strcat(content, "<a href='");
+		strcat(content, dp->d_name);
+		lstat(dp->d_name, &st);
+		if (S_ISDIR(st.st_mode))
+			strcat(content, "/");
+		strcat(content, "'>");
+		strcat(content, dp->d_name);
+		if (S_ISDIR(st.st_mode))
+			strcat(content, "/");
+		strcat(content, "</a><br/>\n");
+	}
+	strcat(content, "</body></html>\r\n");
+
+	generateStatusLine(200, header);
+	strcat(header, "Server: Mokonzi\r\n");
+	strcat(header, "Content-Type: text/html\r\n");
+	sprintf(length, R_LENGTH, strlen(content));
+	strcat(header, length);
+	strcat(header, "\r\n");
+
+	share(header, strlen(header), block, semid);
+	share(content, strlen(content), block, semid);
+
+	free(content);
+}
+
 static void respondRegularFile(int hSocket, char* resource, int size)
 {
 	char header[512];
@@ -415,3 +465,91 @@ static void respondRegularFile(int hSocket, char* resource, int size)
 	}
 	shutdown(hSocket, 2);
 }
+
+static void beastFile(char* resource, int size, ml_shm_block* block, int semid)
+{
+	char header[512];
+	char length[100];
+	FILE* file;
+
+	generateStatusLine(200, header);
+	strcat(header, "Server: Mokonzi\r\n");
+	if (strstr(resource, ".http") == (char*)strlen(resource)-5)
+		strcat(header, "Content-Type: text/html\r\n");
+	else if (strstr(resource, ".jpg") == (char*)strlen(resource) - 4)
+		strcat(header, "Content-Type: image/jpeg\r\n");
+	else if (strstr(resource, ".gif") == (char*)strlen(resource) - 4)
+		strcat(header, "Content-Type: image/gif\r\n");
+	else
+		strcat(header, "Content-Type: text/plain\r\n");
+	sprintf(length, R_LENGTH, size);
+	strcat(header, length);
+	strcat(header, "\r\n");
+
+	share(header, strlen(header), block, semid);
+
+	char* buffer = (char*) malloc (size);
+
+	file = fopen(resource, "r");
+	if (file != NULL)
+	{
+		fread(buffer, 1, size, file);
+		fclose(file);
+		share(buffer, size, block, semid);
+	}
+
+	free(buffer);
+}
+
+static void beast(char* url, ml_shm_block* block, int semid)
+{
+	int result;
+	struct stat filestat;
+	char* resource = (char*) malloc (strlen(ml_server_getRootDir()) + strlen(url) + 10);
+	memset(resource, '\0', sizeof(resource));
+
+	if (url[0] != '/')
+	{
+		// respondAlert(hSocket, 400, "Please supply an absolute url");
+		goto CLEANUP;
+	}
+	if (strchr(url, '?') != NULL)
+	{
+		// respondAlert(hSocket, 401, "Server only serves static resources");
+		goto CLEANUP;
+	}
+	result = resolveURL(url, resource);
+	if (result != SUCCESS)
+	{
+		// respondAlert(hSocket, 400, "Bad request");
+		goto CLEANUP;
+	}
+	if (strncmp(resource, ml_server_getRootDir(), strlen(ml_server_getRootDir())))
+	{
+		// respondAlert(hSocket, 403, "Requested file outside root server directory");
+		goto CLEANUP;
+	}
+	if (stat(resource, &filestat) < 0)
+	{
+		// respondAlert(hSocket, 404, "Unable to locate this file");
+		goto CLEANUP;
+	}
+
+	if (S_ISDIR(filestat.st_mode))
+	{
+		beastDirectory(resource, block, semid);
+	}
+	else if (S_ISREG(filestat.st_mode))
+	{
+		beastFile(resource, filestat.st_size, block, semid);
+	}
+	else
+	{
+		// respondAlert(hSocket, 403, "Invalid file mode");
+	}
+
+CLEANUP:
+	free(resource);
+	return;
+}
+

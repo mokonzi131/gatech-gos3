@@ -250,10 +250,10 @@ static void proxyShared(int hClient, int hServer, RequestStatus* client_status)
 	// shuttle response back to client
 	sb.sem_num = 0;
 	sb.sem_flg = 0;
-	ml_shm_block* data = (ml_shm_block*)shmaddr;
-	data->header.done = 0;
-	data->header.size = 0;
-	while(!data->header.done || data->header.size > 0)
+	ml_shm_block* block = (ml_shm_block*)shmaddr;
+	block->header.done = 0;
+	block->header.size = 0;
+	while(!block->header.done || block->header.size > 0)
 	{
 		sb.sem_op = -1;
 		if (semop(semid, &sb, 1) == ERROR)
@@ -264,13 +264,13 @@ static void proxyShared(int hClient, int hServer, RequestStatus* client_status)
 		/// CRITICAL ///
 
 		size_t count = 0;
-		while(count < data->header.size)
+		while(count < block->header.size)
 		{
-			int bytes = write(hClient, shmaddr + count, data->header.size);
+			int bytes = write(hClient, block->data + count, block->header.size - count);
 			if (bytes == ERROR) break;
 			count += bytes;
 		}
-		data->header.size = 0;
+		block->header.size = 0;
 
 		/// END CRITICAL ///
 		sb.sem_op = 1;
