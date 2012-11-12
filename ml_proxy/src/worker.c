@@ -237,6 +237,12 @@ static void proxyShared(int hClient, int hServer, RequestStatus* client_status)
 		goto CLEANUP;
 	}
 
+	sb.sem_num = 0;
+	sb.sem_flg = 0;
+	ml_shm_block* block = (ml_shm_block*)shmaddr;
+	block->header.done = 0;
+	block->header.size = 0;
+
 	// send request through socket
 	assert(sizeof(int) == sizeof(key_t));
 	if ((strlen("SHM . . .\r\n") + sizeof(int) + sizeof(int)
@@ -255,11 +261,6 @@ static void proxyShared(int hClient, int hServer, RequestStatus* client_status)
 	shutdown(hServer, SHUT_WR);
 
 	// shuttle response back to client
-	sb.sem_num = 0;
-	sb.sem_flg = 0;
-	ml_shm_block* block = (ml_shm_block*)shmaddr;
-	block->header.done = 0;
-	block->header.size = 0;
 	while(!block->header.done || block->header.size > 0)
 	{
 		sb.sem_op = -1;
@@ -290,9 +291,9 @@ static void proxyShared(int hClient, int hServer, RequestStatus* client_status)
 
 CLEANUP:
 	shutdown(hClient, SHUT_WR);
-	if (workspace != NULL) ml_workspace_return(workspace);
 	if (shmaddr != ((void*)ERROR))
 	{
 		if (shmdt(shmaddr) == (ERROR)) printf("SHM ERROR on detatch: %d\n", errno);
 	}
+	if (workspace != NULL) ml_workspace_return(workspace);
 }

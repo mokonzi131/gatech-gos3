@@ -191,7 +191,7 @@ static void* ml_client_work(void* input)
 	int bytes = 0;
 	char request[1024];
 	struct timeval tv;
-	tv.tv_sec = 3;
+	tv.tv_sec = 3; // FIX THIS LATER...
 	tv.tv_usec = 0;
 
 	// wait for the signal from the main thread before starting (for timing purposes)
