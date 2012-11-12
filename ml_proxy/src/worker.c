@@ -17,6 +17,7 @@
 #include <errno.h>
 #include <sys/shm.h>
 #include <sys/ipc.h>
+#include <assert.h>
 
 #include "safeq.h"
 #include "http.h"
@@ -25,7 +26,7 @@
 static void processConnection(int hClient, char* buffer);
 static void processProxyRequest(int hClient, char* buffer, RequestStatus* client_status);
 static void proxySocket(int hClient, int hServer, char* buffer, RequestStatus* client_status);
-static void proxyShared(int hClient, int hServer);
+static void proxyShared(int hClient, int hServer, RequestStatus* client_status);
 
 /// PUBLIC INTERFACE ///
 void* ml_worker(void* argument)
@@ -148,7 +149,7 @@ static void processProxyRequest(int hClient, char* buffer, RequestStatus* client
 	// perform appropriate proxy task
 	if (useSharedMode(remoteaddr->sin_addr.s_addr, hServer))
 	{
-		proxyShared(hClient, hServer);
+		proxyShared(hClient, hServer, client_status);
 	}
 	else
 	{
@@ -193,15 +194,17 @@ static void proxySocket(int hClient, int hServer, char* buffer, RequestStatus* c
 	shutdown(hClient, SHUT_WR);
 }
 
-static void proxyShared(int hClient, int hServer)
+static void proxyShared(int hClient, int hServer, RequestStatus* client_status)
 {
 	int shmid = (ERROR);
 	void* shmaddr = ((void*)ERROR);
 	struct shmid_ds info = {};
-	int i;
+	char request[IO_BUF_SIZE];
+	key_t key = (ERROR);
+	key_t semkey = (ERROR);
 
-	/// get shm segment
-	key_t key = ftok("./", 'A');
+	// get shm segment
+	key = ftok("./", 'A');
 	if ((shmid = shmget(key, SHM_BUF_SIZE, (0666 | IPC_CREAT))) == (ERROR))
 	{
 		printf("ML_PROXY: Failed to open/create shm segment %d, aborting...\n", errno);
@@ -214,16 +217,24 @@ static void proxyShared(int hClient, int hServer)
 	}
 	shmctl(shmid, IPC_STAT, &info);
 
-	/// send request through socket
-//	ml_shm_block* block = (ml_shm_block*)shmaddr;
-//	for (i = 0; i < info.shm_segsz; ++i)
-//	{
-//		block->array[i] = i % 256;
-//	}
-//	block->done = 1;
-//	block->size = 256;
+	// send request through socket
+	assert(sizeof(int) == sizeof(key_t));
+	if ((strlen("SHM . . .\r\n") + sizeof(int) + sizeof(int)
+			+ client_status->uri_len) > IO_BUF_SIZE)
+	{
+		printf("ML_PROXY: Failed to create request, aborting... %d\n", errno);
+		goto CLEANUP;
+	}
+	sprintf(request, "SHM %.*s %d %d\r\n", client_status->uri_len, client_status->uri, (int)key, (int)semkey);
+	if (send(hServer, request, strlen(request), 0) == (ERROR))
+	{
+		printf("ML_PROXy: Failed to send request to remote server, aborting...\n");
+		goto CLEANUP;
+	}
+	shutdown(hServer, SHUT_WR);
 
-	/// shuttle response
+	/// shuttle response /// TODO ING
+	sleep(5);
 	ml_shm_block* block2 = (ml_shm_block*)shmaddr;
 	printf("Block Size = %d", block2->size);
 	printf("Block Done = %d", block2->done);
