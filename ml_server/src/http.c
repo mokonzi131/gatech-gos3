@@ -132,6 +132,7 @@ void ml_http_processSHMRequest(char inBuffer[])
 
 	// write response
 	char* response = (char*) malloc (1024 * 1024); // TODO make real...
+	memset(response, 'm', 1024 * 1024);
 	size_t total = (1024 * 1024);
 	size_t count = 0;
 	ml_shm_block* block = (ml_shm_block*)shmaddr;
@@ -144,13 +145,14 @@ void ml_http_processSHMRequest(char inBuffer[])
 			goto CLEANUP;
 		}
 		/// CRITICAL ///
-
-		int bytes = (sizeof(block->data) < total - count) ?
-				(sizeof(block->data)) : (total - count);
-		memcpy(block->data, response + count, bytes);
-		count += bytes;
-		block->header.size = bytes;
-		printf("copied %d bytes\n", bytes);
+		if (block->header.size == 0)
+		{
+			int bytes = (sizeof(block->data) < total - count) ?
+					(sizeof(block->data)) : (total - count);
+			memcpy(block->data, response + count, bytes);
+			count += bytes;
+			block->header.size = bytes;
+		}
 
 		/// END CRITICAL ///
 		sb.sem_op = 1;
