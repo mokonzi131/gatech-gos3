@@ -20,13 +20,13 @@ void ml_http_processSHMRequest(char*);
 
 /// SHM types ///
 #define SHM_BUF_SIZE			4096
-typedef union {
-	char array[SHM_BUF_SIZE];
-	struct {
-		int done;
-		size_t size;
-		char data[SHM_BUF_SIZE - sizeof(int) - sizeof(size_t)];
-	};
+typedef struct {
+	int done;
+	int size;
+} ml_shm_header;
+typedef struct {
+	ml_shm_header header;
+	char data[SHM_BUF_SIZE - sizeof(ml_shm_header)];
 } ml_shm_block;
 
 #endif

@@ -123,12 +123,12 @@ void ml_http_processSHMRequest(char inBuffer[])
 	// write response
 	int i;
 	ml_shm_block* block = (ml_shm_block*)shmaddr;
-	for (i = 0; i < info.shm_segsz; ++i)
+	for (i = 0; i < sizeof(block->data); ++i)
 	{
-		block->array[i] = i % 256;
+		block->data[i] = i;
 	}
-	block->done = 1;
-	block->size = 10;
+	block->header.done = 1;
+	block->header.size = 100;
 
 	printf("Request: %s\nKey: %d\nSemkey: %d\n", uri, key, semkey);
 

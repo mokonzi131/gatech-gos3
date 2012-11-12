@@ -17,6 +17,7 @@
 #include <errno.h>
 #include <sys/shm.h>
 #include <sys/ipc.h>
+#include <sys/sem.h>
 #include <assert.h>
 
 #include "safeq.h"
@@ -197,17 +198,25 @@ static void proxySocket(int hClient, int hServer, char* buffer, RequestStatus* c
 static void proxyShared(int hClient, int hServer, RequestStatus* client_status)
 {
 	int shmid = (ERROR);
+	int semid = (ERROR);
 	void* shmaddr = ((void*)ERROR);
 	struct shmid_ds info = {};
+	struct sembuf sb = {};
 	char request[IO_BUF_SIZE];
 	key_t key = (ERROR);
 	key_t semkey = (ERROR);
 
-	// get shm segment
+	// get shm segment, get semaphore
 	key = ftok("./", 'A');
+	semkey = ftok("./", 'a');
 	if ((shmid = shmget(key, SHM_BUF_SIZE, (0666 | IPC_CREAT))) == (ERROR))
 	{
 		printf("ML_PROXY: Failed to open/create shm segment %d, aborting...\n", errno);
+		goto CLEANUP;
+	}
+	if ((semid = semget(semkey, 1, IPC_CREAT | 0666)) == (ERROR))
+	{
+		perror("semget");
 		goto CLEANUP;
 	}
 	if ((shmaddr = shmat(shmid, NULL, 0)) == ((void*)ERROR))
@@ -215,6 +224,11 @@ static void proxyShared(int hClient, int hServer, RequestStatus* client_status)
 		printf("ML_PROXY: Failed to attach shm segment %d, aborting...\n", errno);
 		goto CLEANUP;
 	}
+	if (semctl(semid, 0, SETVAL, 1) == (ERROR))
+	{
+		perror("semctl");
+		goto CLEANUP;
+	};
 	shmctl(shmid, IPC_STAT, &info);
 
 	// send request through socket
@@ -233,15 +247,41 @@ static void proxyShared(int hClient, int hServer, RequestStatus* client_status)
 	}
 	shutdown(hServer, SHUT_WR);
 
-	/// shuttle response /// TODO ING
-	sleep(5);
-	ml_shm_block* block2 = (ml_shm_block*)shmaddr;
-	printf("Block Size = %d", block2->size);
-	printf("Block Done = %d", block2->done);
-	printf("Sizeof = %d\n", sizeof(block2->data));
-	write(hClient, shmaddr, sizeof(block2->data));
+	// shuttle response back to client
+	sb.sem_num = 0;
+	sb.sem_flg = 0;
+	ml_shm_block* data = (ml_shm_block*)shmaddr;
+	data->header.done = 0;
+	data->header.size = 0;
+	while(!data->header.done || data->header.size > 0)
+	{
+		sb.sem_op = -1;
+		if (semop(semid, &sb, 1) == ERROR)
+		{
+			perror("SEM: Error in acquiring lock");
+			goto CLEANUP;
+		}
+		printf("enter...\n");
+		/// CRITICAL ///
+		size_t count = 0;
+		while(count < data->header.size)
+		{
+			int bytes = write(hClient, shmaddr + count, data->header.size);
+			if (bytes == ERROR) break;
+			count += bytes;
+		}
+		data->header.size = 0;
+		/// END CRITICAL ///
+		printf("exit...\n");
+		sb.sem_op = 1;
+		if (semop(semid, &sb, 1) == ERROR)
+		{
+			perror("SEM: Error in releasing lock");
+			goto CLEANUP;
+		}
+	}
 	shutdown(hClient, SHUT_WR);
-
+	printf("leave...\n");
 CLEANUP:
 	if (shmaddr != ((void*)ERROR))
 	{
@@ -250,5 +290,9 @@ CLEANUP:
 	if (shmid > 0)
 	{
 		if (shmctl(shmid, IPC_RMID, NULL)) printf("SHM ERROR on rmid: %d\n", errno);
+	}
+	if (semid > 0)
+	{
+		if (semctl(semid, 0, IPC_RMID) == (ERROR)) printf("SEM ERROR on rmid %d\n", errno);
 	}
 }
