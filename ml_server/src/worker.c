@@ -84,6 +84,13 @@ static void processConnection(int hSocket, char inBuffer[])
 ///	}
 /// removed because the specs ask us to handle request in format: [GET <path>\r\n]
 
+	// determine request type, and handle appropriately
+	if(strncmp(inBuffer, "SHM ", 4) == 0)
+	{
+		ml_http_processSHMRequest(inBuffer);
+		shutdown(hSocket, 2);
+	}
+
 	// call processHTTPRequest()
 	statusLine = (char*) malloc (sizeof(char) * (strlen(inBuffer)+1));
 	strcpy(statusLine, inBuffer);

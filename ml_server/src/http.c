@@ -15,6 +15,8 @@
 #include <sys/sendfile.h>
 #include <sys/socket.h>
 #include <errno.h>
+#include <sys/shm.h>
+#include <sys/ipc.h>
 
 #include "server.h"
 
@@ -90,6 +92,52 @@ void ml_http_processHTTPRequest(int hSocket, char inBuffer[], char* statusLine)/
 
 	free(httpMethod);
 	free(httpUrl);
+}
+
+void ml_http_processSHMRequest(char inBuffer[])
+{
+	int shmid = -1;
+	void* shmaddr = (void*)-1;
+	struct shmid_ds info = {};
+
+	// extract datas
+	char* uri = (char*) malloc(strlen(inBuffer));
+	key_t key = (-1);
+	key_t semkey = (-1);
+
+	sscanf(inBuffer, "SHM %s %d %d\r\n", uri, (int*)&key, (int*)&semkey);
+
+	// open segment
+	if ((shmid = shmget(key, 0, 0)) == -1)
+	{
+		printf("ML_SERV: Failed to open shm segment %d, aborting...\n", errno);
+		goto CLEANUP;
+	}
+	if ((shmaddr = shmat(shmid, NULL, 0)) == (void*)-1)
+	{
+		printf("ML_SERV: Failed to attach shm segment %d, aborting...\n", errno);
+		goto CLEANUP;
+	}
+	shmctl(shmid, IPC_STAT, &info);
+
+	// write response
+	int i;
+	ml_shm_block* block = (ml_shm_block*)shmaddr;
+	for (i = 0; i < info.shm_segsz; ++i)
+	{
+		block->array[i] = i % 256;
+	}
+	block->done = 1;
+	block->size = 10;
+
+	printf("Request: %s\nKey: %d\nSemkey: %d\n", uri, key, semkey);
+
+CLEANUP:
+	if (shmaddr != ((void*)-1))
+	{
+		if (shmdt(shmaddr) == (-1)) printf("SHM ERROR on detatch: %d\n", errno);
+	}
+	free(uri);
 }
 
 /* IMPLEMENTATION */
