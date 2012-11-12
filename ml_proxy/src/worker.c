@@ -212,7 +212,7 @@ static void proxyShared(int hClient, int hServer, RequestStatus* client_status)
 		printf("ML_PROXY: Failed to obtain a sharing workspace, aborting...\n");
 		goto CLEANUP;
 	}
-	printf("using workspace shmkey %ld semkey %ld\n", workspace->shmkey, workspace->semkey);
+	//printf("using workspace shmkey %ld semkey %ld\n", workspace->shmkey, workspace->semkey);
 
 	if ((shmid = shmget(workspace->shmkey, 0, 0)) == ERROR)
 	{
@@ -287,9 +287,10 @@ static void proxyShared(int hClient, int hServer, RequestStatus* client_status)
 			goto CLEANUP;
 		}
 	}
-	shutdown(hClient, SHUT_WR);
 
 CLEANUP:
+	shutdown(hClient, SHUT_WR);
+	if (workspace != NULL) ml_workspace_return(workspace);
 	if (shmaddr != ((void*)ERROR))
 	{
 		if (shmdt(shmaddr) == (ERROR)) printf("SHM ERROR on detatch: %d\n", errno);

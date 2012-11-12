@@ -13,131 +13,117 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/sem.h>
+#include <stdbool.h>
 
 /// DATA ///
-//static const size_t INITIAL_CAPACITY = 1024;
-
-//typedef struct {
-//	unsigned int* array;
-//	unsigned int* front;
-//	unsigned int* back;
-//	size_t capacity;
-//	size_t size;
-//} Sockets;
-
-//static Sockets sockets = { NULL, NULL, NULL, 0, 0 }; /// protected by (m_qaccess)
-
-//static pthread_mutex_t m_qaccess;
-//static pthread_cond_t c_isItem; /// _get waits for items to exist in q
-//static pthread_cond_t c_isSpace; /// _put waits for space in the q
-ml_shm_workspace* space;
-
-/// PRIVATE INTERFACE ///
+static ml_shm_workspace* front;
+static ml_shm_workspace* back;
+static size_t size;
+static pthread_mutex_t m_access; /// lock access to the list of workspaces
+static pthread_cond_t c_resource; /// signals the existance of a resource on the list
 
 /// PUBLIC INTERFACE ///
 int ml_workspace_initialize(void)
 {
-	space = (ml_shm_workspace*) malloc (sizeof(ml_shm_workspace));
-	space->shmkey = ftok("./", 'A');
-	space->semkey = ftok("./", 'a');
-	space->next = NULL;
+	bool finished = false;
+	front = back = NULL;
+	size = 0;
+	int secret = 0;
 
-	shmget(space->shmkey, SHM_BUF_SIZE, 0666 | IPC_CREAT);
-	semget(space->semkey, 1, 0666 | IPC_CREAT);
+	while(!finished && size <= MAX_WORKERS)
+	{
+		ml_shm_workspace* space = (ml_shm_workspace*) malloc (sizeof(ml_shm_workspace));
+		space->shmkey = ftok("./", secret);
+		space->semkey = ftok("../", secret);
+		space->next = NULL;
 
-	printf("workspace up\n");
+		if ((shmget(space->shmkey, SHM_BUF_SIZE, 0666 | IPC_CREAT)) == ERROR)
+		{
+			finished = true;
+			free(space);
+			break;
+		}
+		if ((semget(space->semkey, 1, 0666 | IPC_CREAT)) == ERROR)
+		{
+			int shmid;
+			finished = true;
+			if ((shmid = shmget(space->semkey, 0, 0)) != ERROR) shmctl(shmid, IPC_RMID, NULL);
+			free(space);
+			break;
+		}
+
+		ml_workspace_return(space);
+
+		++secret;
+	}
+
 	return (SUCCESS);
 }
 
 int ml_workspace_teardown(void)
 {
-	int shmid, semid;
+	pthread_mutex_lock(&m_access);
+	{/////////////////////////////
+		int shmid, semid;
+		ml_shm_workspace* space;
 
-	if ((shmid = shmget(space->shmkey, 0, 0)) != ERROR)
-		shmctl(shmid, IPC_RMID, NULL);
-	if ((semid = semget(space->semkey, 0, 0)) != ERROR)
-		semctl(semid, 0, IPC_RMID);
+		while(front != NULL)
+		{
+			space = front;
+			front = front->next;
 
-	free(space);
-	printf("workspace down\n");
+			if ((shmid = shmget(space->shmkey, 0, 0)) != ERROR)
+				shmctl(shmid, IPC_RMID, NULL);
+			if ((semid = semget(space->semkey, 0, 0)) != ERROR)
+				semctl(semid, 0, IPC_RMID);
+
+			free(space);
+		}
+		front = back = NULL;
+		size = 0;
+	}//////////////////////////////
+	pthread_mutex_unlock(&m_access);
+
 	return (SUCCESS);
 }
 
-int ml_workspace_return(ml_shm_workspace* workspace)
+int ml_workspace_return(ml_shm_workspace* space)
 {
-	printf("workspace return space\n");
+	pthread_mutex_lock(&m_access);
+	{/////////////////////////////
+		if (size == 0)
+		{
+			front = back = space;
+		}
+		else
+		{
+			back->next = space;
+			back = space;
+		}
+		++size;
+	}///////////////////////////////
+	pthread_mutex_unlock(&m_access);
+	pthread_cond_signal(&c_resource);
+
 	return (SUCCESS);
 }
 
 ml_shm_workspace* ml_workspace_retrieve(void)
 {
-	printf("workspace get space\n");
+	ml_shm_workspace* space = NULL;
+
+	pthread_mutex_lock(&m_access);
+	{/////////////////////////////
+		while(size < 1)
+			pthread_cond_wait(&c_resource, &m_access);
+	//////////////////////////////
+		space = front;
+		front = front->next;
+		if (front == NULL) back = NULL;
+		--size;
+	}///////////////////////////////
+	pthread_mutex_unlock(&m_access);
+
+	space->next = NULL;
 	return space;
 }
-
-//int ml_safeq_initialize(void)
-//{
-//	sockets.array = (unsigned int*) malloc (sizeof(unsigned int) * INITIAL_CAPACITY);
-//	sockets.front = sockets.back = sockets.array;
-//	sockets.capacity = INITIAL_CAPACITY;
-//	sockets.size = 0;
-//	if (sockets.array == NULL) return (SAFEQ_ERROR);
-//	return (SUCCESS);
-//}
-
-//int ml_safeq_teardown(void)
-//{
-//	free(sockets.array);
-//	sockets.array = sockets.front = sockets.back = NULL;
-//	sockets.capacity = 0;
-//	sockets.size = 0;
-//	return (SUCCESS);
-//}
-
-//int ml_safeq_put(unsigned int socket)
-//{
-//	pthread_mutex_lock(&m_qaccess);
-//	{
-//		assert(sockets.array != NULL);
-		// wait for space in the q
-//		while (sockets.size == sockets.capacity)
-//			pthread_cond_wait(&c_isSpace, &m_qaccess);
-
-		// place item into q
-//		*(sockets.back) = socket;
-//		++(sockets.size);
-//		++(sockets.back);
-//		if (sockets.back == (sockets.array + sockets.capacity))
-//			sockets.back = sockets.array;
-
-//		pthread_cond_broadcast(&c_isItem);
-//	}
-	//printf("sq size = %d\n", sockets.size);
-//	pthread_mutex_unlock(&m_qaccess);
-
-//	return (SUCCESS);
-//}
-
-//int ml_safeq_get(void)
-//{
-//	int socket;
-//	pthread_mutex_lock(&m_qaccess);
-//	{
-//		assert(sockets.array != NULL);
-		// wait for an actual item in the q
-//		while(sockets.size == 0)
-//			pthread_cond_wait(&c_isItem, &m_qaccess);
-
-		// get item off the q
-//		socket = *(sockets.front);
-//		--(sockets.size);
-//		++(sockets.front);
-//		if (sockets.front == (sockets.array + sockets.capacity))
-//			sockets.front = sockets.array;
-
-//		pthread_cond_signal(&c_isSpace);
-//	}
-//	pthread_mutex_unlock(&m_qaccess);
-
-//	return socket;
-//}

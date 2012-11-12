@@ -190,6 +190,9 @@ static void* ml_client_work(void* input)
 	char buffer[1024];
 	int bytes = 0;
 	char request[1024];
+	struct timeval tv;
+	tv.tv_sec = 3;
+	tv.tv_usec = 0;
 
 	// wait for the signal from the main thread before starting (for timing purposes)
 	pthread_mutex_lock(&m_ready);
@@ -223,12 +226,13 @@ static void* ml_client_work(void* input)
 		write(data->hSocket, request, strlen(request));
 		shutdown(data->hSocket, SHUT_WR);
 
+		setsockopt(data->hSocket, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, sizeof tv);
 		while((bytes = read(data->hSocket, buffer, 1024)) != 0)
 		{
 			if (bytes == (-1)) break;
 			data->bytesRead += bytes;
 		}
-		++(data->successes);
+		if (bytes != -1) ++(data->successes);
 
 		shutdown(data->hSocket, SHUT_RD);
 		if(close(data->hSocket) == SOCKET_ERROR)
