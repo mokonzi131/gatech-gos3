@@ -15,6 +15,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <sys/shm.h>
+#include <sys/ipc.h>
 
 #include "safeq.h"
 #include "http.h"
@@ -23,7 +25,7 @@
 static void processConnection(int hClient, char* buffer);
 static void processProxyRequest(int hClient, char* buffer, RequestStatus* client_status);
 static void proxySocket(int hClient, int hServer, char* buffer, RequestStatus* client_status);
-static void proxyShared();
+static void proxyShared(int hClient, int hServer);
 
 /// PUBLIC INTERFACE ///
 void* ml_worker(void* argument)
@@ -146,7 +148,7 @@ static void processProxyRequest(int hClient, char* buffer, RequestStatus* client
 	// perform appropriate proxy task
 	if (useSharedMode(remoteaddr->sin_addr.s_addr, hServer))
 	{
-		proxyShared();
+		proxyShared(hClient, hServer);
 	}
 	else
 	{
@@ -191,7 +193,51 @@ static void proxySocket(int hClient, int hServer, char* buffer, RequestStatus* c
 	shutdown(hClient, SHUT_WR);
 }
 
-static void proxyShared()
+static void proxyShared(int hClient, int hServer)
 {
-	printf("sharing...\n");
+	int shmid = (ERROR);
+	void* shmaddr = ((void*)ERROR);
+	struct shmid_ds info = {};
+	int i;
+
+	/// get shm segment
+	key_t key = ftok("./", 'A');
+	if ((shmid = shmget(key, SHM_BUF_SIZE, (0666 | IPC_CREAT))) == (ERROR))
+	{
+		printf("ML_PROXY: Failed to open/create shm segment %d, aborting...\n", errno);
+		goto CLEANUP;
+	}
+	if ((shmaddr = shmat(shmid, NULL, 0)) == ((void*)ERROR))
+	{
+		printf("ML_PROXY: Failed to attach shm segment %d, aborting...\n", errno);
+		goto CLEANUP;
+	}
+	shmctl(shmid, IPC_STAT, &info);
+
+	/// send request through socket
+//	ml_shm_block* block = (ml_shm_block*)shmaddr;
+//	for (i = 0; i < info.shm_segsz; ++i)
+//	{
+//		block->array[i] = i % 256;
+//	}
+//	block->done = 1;
+//	block->size = 256;
+
+	/// shuttle response
+	ml_shm_block* block2 = (ml_shm_block*)shmaddr;
+	printf("Block Size = %d", block2->size);
+	printf("Block Done = %d", block2->done);
+	printf("Sizeof = %d\n", sizeof(block2->data));
+	write(hClient, shmaddr, sizeof(block2->data));
+	shutdown(hClient, SHUT_WR);
+
+CLEANUP:
+	if (shmaddr != ((void*)ERROR))
+	{
+		if (shmdt(shmaddr) == (ERROR)) printf("SHM ERROR on detatch: %d\n", errno);
+	}
+	if (shmid > 0)
+	{
+		if (shmctl(shmid, IPC_RMID, NULL)) printf("SHM ERROR on rmid: %d\n", errno);
+	}
 }
