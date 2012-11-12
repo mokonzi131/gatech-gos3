@@ -261,8 +261,8 @@ static void proxyShared(int hClient, int hServer, RequestStatus* client_status)
 			perror("SEM: Error in acquiring lock");
 			goto CLEANUP;
 		}
-		printf("enter...\n");
 		/// CRITICAL ///
+
 		size_t count = 0;
 		while(count < data->header.size)
 		{
@@ -271,8 +271,8 @@ static void proxyShared(int hClient, int hServer, RequestStatus* client_status)
 			count += bytes;
 		}
 		data->header.size = 0;
+
 		/// END CRITICAL ///
-		printf("exit...\n");
 		sb.sem_op = 1;
 		if (semop(semid, &sb, 1) == ERROR)
 		{
@@ -281,7 +281,7 @@ static void proxyShared(int hClient, int hServer, RequestStatus* client_status)
 		}
 	}
 	shutdown(hClient, SHUT_WR);
-	printf("leave...\n");
+
 CLEANUP:
 	if (shmaddr != ((void*)ERROR))
 	{

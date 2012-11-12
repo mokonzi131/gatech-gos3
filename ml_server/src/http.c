@@ -17,6 +17,7 @@
 #include <errno.h>
 #include <sys/shm.h>
 #include <sys/ipc.h>
+#include <sys/sem.h>
 
 #include "server.h"
 
@@ -97,8 +98,10 @@ void ml_http_processHTTPRequest(int hSocket, char inBuffer[], char* statusLine)/
 void ml_http_processSHMRequest(char inBuffer[])
 {
 	int shmid = -1;
+	int semid = -1;
 	void* shmaddr = (void*)-1;
 	struct shmid_ds info = {};
+	struct sembuf sb = {};
 
 	// extract datas
 	char* uri = (char*) malloc(strlen(inBuffer));
@@ -107,7 +110,7 @@ void ml_http_processSHMRequest(char inBuffer[])
 
 	sscanf(inBuffer, "SHM %s %d %d\r\n", uri, (int*)&key, (int*)&semkey);
 
-	// open segment
+	// open segment, semaphore
 	if ((shmid = shmget(key, 0, 0)) == -1)
 	{
 		printf("ML_SERV: Failed to open shm segment %d, aborting...\n", errno);
@@ -119,18 +122,45 @@ void ml_http_processSHMRequest(char inBuffer[])
 		goto CLEANUP;
 	}
 	shmctl(shmid, IPC_STAT, &info);
+	if ((semid = semget(semkey, 0, 0)) == -1)
+	{
+		perror("semget");
+		goto CLEANUP;
+	}
+	sb.sem_num = 0;
+	sb.sem_flg = 0;
 
 	// write response
-	int i;
+	char* response = (char*) malloc (1024 * 1024); // TODO make real...
+	size_t total = (1024 * 1024);
+	size_t count = 0;
 	ml_shm_block* block = (ml_shm_block*)shmaddr;
-	for (i = 0; i < sizeof(block->data); ++i)
+	while (count < total)
 	{
-		block->data[i] = i;
+		sb.sem_op = -1;
+		if (semop(semid, &sb, 1) == -1)
+		{
+			perror("SEM: Error in acquiring lock");
+			goto CLEANUP;
+		}
+		/// CRITICAL ///
+
+		int bytes = (sizeof(block->data) < total - count) ?
+				(sizeof(block->data)) : (total - count);
+		memcpy(block->data, response + count, bytes);
+		count += bytes;
+		block->header.size = bytes;
+		printf("copied %d bytes\n", bytes);
+
+		/// END CRITICAL ///
+		sb.sem_op = 1;
+		if (semop(semid, &sb, 1) == -1)
+		{
+			perror("SEM: Error in releasing lock");
+			goto CLEANUP;
+		}
 	}
 	block->header.done = 1;
-	block->header.size = 100;
-
-	printf("Request: %s\nKey: %d\nSemkey: %d\n", uri, key, semkey);
 
 CLEANUP:
 	if (shmaddr != ((void*)-1))
