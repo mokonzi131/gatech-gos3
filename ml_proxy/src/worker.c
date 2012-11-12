@@ -22,6 +22,7 @@
 
 #include "safeq.h"
 #include "http.h"
+#include "workspace.h"
 
 /// PRIVATE INTERFACE ///
 static void processConnection(int hClient, char* buffer);
@@ -203,20 +204,19 @@ static void proxyShared(int hClient, int hServer, RequestStatus* client_status)
 	struct shmid_ds info = {};
 	struct sembuf sb = {};
 	char request[IO_BUF_SIZE];
-	key_t key = (ERROR);
-	key_t semkey = (ERROR);
+	ml_shm_workspace* workspace = NULL;
 
 	// get shm segment, get semaphore
-	key = ftok("./", 'A');
-	semkey = ftok("./", 'a');
-	if ((shmid = shmget(key, SHM_BUF_SIZE, (0666 | IPC_CREAT))) == (ERROR))
+	if ((workspace = ml_workspace_retrieve()) == NULL)
 	{
-		printf("ML_PROXY: Failed to open/create shm segment %d, aborting...\n", errno);
+		printf("ML_PROXY: Failed to obtain a sharing workspace, aborting...\n");
 		goto CLEANUP;
 	}
-	if ((semid = semget(semkey, 1, IPC_CREAT | 0666)) == (ERROR))
+	printf("using workspace shmkey %ld semkey %ld\n", workspace->shmkey, workspace->semkey);
+
+	if ((shmid = shmget(workspace->shmkey, 0, 0)) == ERROR)
 	{
-		perror("semget");
+		perror("ML_PROXY: Fialed to retrieve memory");
 		goto CLEANUP;
 	}
 	if ((shmaddr = shmat(shmid, NULL, 0)) == ((void*)ERROR))
@@ -224,12 +224,18 @@ static void proxyShared(int hClient, int hServer, RequestStatus* client_status)
 		printf("ML_PROXY: Failed to attach shm segment %d, aborting...\n", errno);
 		goto CLEANUP;
 	}
+	shmctl(shmid, IPC_STAT, &info);
+
+	if ((semid = semget(workspace->semkey, 0, 0)) == ERROR)
+	{
+		perror("ML_PROXY: Failed to retrieve semaphore");
+		goto CLEANUP;
+	}
 	if (semctl(semid, 0, SETVAL, 1) == (ERROR))
 	{
 		perror("semctl");
 		goto CLEANUP;
-	};
-	shmctl(shmid, IPC_STAT, &info);
+	}
 
 	// send request through socket
 	assert(sizeof(int) == sizeof(key_t));
@@ -239,7 +245,8 @@ static void proxyShared(int hClient, int hServer, RequestStatus* client_status)
 		printf("ML_PROXY: Failed to create request, aborting... %d\n", errno);
 		goto CLEANUP;
 	}
-	sprintf(request, "SHM %.*s %d %d\r\n", client_status->uri_len, client_status->uri, (int)key, (int)semkey);
+	sprintf(request, "SHM %.*s %d %d\r\n", client_status->uri_len, client_status->uri,
+			(int)workspace->shmkey, (int)workspace->semkey);
 	if (send(hServer, request, strlen(request), 0) == (ERROR))
 	{
 		printf("ML_PROXy: Failed to send request to remote server, aborting...\n");
@@ -286,13 +293,5 @@ CLEANUP:
 	if (shmaddr != ((void*)ERROR))
 	{
 		if (shmdt(shmaddr) == (ERROR)) printf("SHM ERROR on detatch: %d\n", errno);
-	}
-	if (shmid > 0)
-	{
-		if (shmctl(shmid, IPC_RMID, NULL)) printf("SHM ERROR on rmid: %d\n", errno);
-	}
-	if (semid > 0)
-	{
-		if (semctl(semid, 0, IPC_RMID) == (ERROR)) printf("SEM ERROR on rmid %d\n", errno);
 	}
 }

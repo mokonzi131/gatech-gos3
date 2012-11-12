@@ -18,6 +18,7 @@
 
 #include "worker.h"
 #include "safeq.h"
+#include "workspace.h"
 
 #define INIT_ERROR		-2
 #define RUN_ERROR		-3
@@ -152,6 +153,13 @@ static int initialize(unsigned short int port, unsigned int workers, int shared)
 		return (INIT_ERROR);
 	}
 
+	// turn on the workspace manager
+	if (ml_workspace_initialize())
+	{
+		printf("INIT: Workspace manager failed to initialize...\n");
+		return (INIT_ERROR);
+	}
+
 	// setup the workers
 	p_workers = ((workers == 0 || workers > MAX_WORKERS)? DEFAULT_PROXY_WORKERS : workers);
 	p_workerPool = (pthread_t*) malloc (p_workers * sizeof(pthread_t));
@@ -211,6 +219,7 @@ static void teardown(void)
 	}
 
 	ml_safeq_teardown();
+	ml_workspace_teardown();
 
 	free(p_workerPool);
 	free(p_workerArgs);
