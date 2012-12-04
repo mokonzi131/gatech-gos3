@@ -1,5 +1,5 @@
 /// Michael Landes
-/// GaTech : GOS : Project 2
+/// GaTech : GOS : Project 3
 /// \\\///\\\///\\\///\\\///
 
 #include <netinet/in.h>
@@ -16,21 +16,9 @@
 #define ERROR					-1
 #define SAFEQ_ERROR				-2
 #define IO_BUF_SIZE 			1000
-#define SHM_BUF_SIZE			4096
 #define TIMEOUT_SEC				10
 
 /// PROXY.C DEFINED GLOBAL ACCESS ///
 extern int TERMINATE;
-extern int useSharedMode(in_addr_t client_addr, int hServer);
-
-/// SHM types ///
-typedef struct {
-	int done;
-	int size;
-} ml_shm_header;
-typedef struct {
-	ml_shm_header header;
-	char data[SHM_BUF_SIZE - sizeof(ml_shm_header)];
-} ml_shm_block;
 
 #endif

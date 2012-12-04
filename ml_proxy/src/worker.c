@@ -1,6 +1,6 @@
-// Michael Landes
-// GaTech : GOS : Project 2
-///////////////////////////
+/// Michael Landes
+/// GaTech : GOS : Project 3
+/// \\\///\\\///\\\///\\\///
 #include "globals.h"
 
 #include "worker.h"
@@ -22,13 +22,11 @@
 
 #include "safeq.h"
 #include "http.h"
-#include "workspace.h"
 
 /// PRIVATE INTERFACE ///
 static void processConnection(int hClient, char* buffer);
 static void processProxyRequest(int hClient, char* buffer, RequestStatus* client_status);
 static void proxySocket(int hClient, int hServer, char* buffer, RequestStatus* client_status);
-static void proxyShared(int hClient, int hServer, RequestStatus* client_status);
 
 /// PUBLIC INTERFACE ///
 void* ml_worker(void* argument)
@@ -84,7 +82,7 @@ static void processConnection(int hClient, char* buffer)
 	client_status.port = client_status.port <= 0 || client_status.port > MAX_PORT ? 80 : client_status.port;
 
 	// make sure it fits our standards for a 'proxy request'
-	if (client_status.method != GET) /// HTTP protocol assumed because spec is [GET <path>\r\n]
+	if (client_status.method != GET)
 	{
 		ml_http_sendProxyError(hClient, "ML_PROXY: Invalid method type...");
 		return;
@@ -107,7 +105,6 @@ static void processProxyRequest(int hClient, char* buffer, RequestStatus* client
 	int hServer;
 	struct addrinfo hints;
 	struct addrinfo* result;
-	struct sockaddr_in* remoteaddr;
 
 	struct timeval tv;
 	tv.tv_sec = TIMEOUT_SEC;
@@ -132,8 +129,6 @@ static void processProxyRequest(int hClient, char* buffer, RequestStatus* client
 	}
 
 	// retrieve the remote address, and hServer
-	remoteaddr = (struct sockaddr_in*)result->ai_addr;
-	//printf("getaddrinfo: %s => %s:%ld\n", clientName, inet_ntoa(remoteaddr->sin_addr), ntohs(remoteaddr->sin_port));
 	if ((hServer = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == (ERROR))
 	{
 		ml_http_sendProxyError(hClient, "ML_PROXY: Failed to open a socket, aborting...");
@@ -149,14 +144,8 @@ static void processProxyRequest(int hClient, char* buffer, RequestStatus* client
 	}
 
 	// perform appropriate proxy task
-	if (useSharedMode(remoteaddr->sin_addr.s_addr, hServer))
-	{
-		proxyShared(hClient, hServer, client_status);
-	}
-	else
-	{
-		proxySocket(hClient, hServer, buffer, client_status);
-	}
+	printf("%.*s:%d\t\t%.*s\n", client_status->host_len, client_status->host, client_status->port, client_status->uri_len, client_status->uri);
+	proxySocket(hClient, hServer, buffer, client_status);
 
 cleanup:
 	freeaddrinfo(result);
@@ -194,106 +183,4 @@ static void proxySocket(int hClient, int hServer, char* buffer, RequestStatus* c
 	}
 
 	shutdown(hClient, SHUT_WR);
-}
-
-static void proxyShared(int hClient, int hServer, RequestStatus* client_status)
-{
-	int shmid = (ERROR);
-	int semid = (ERROR);
-	void* shmaddr = ((void*)ERROR);
-	struct shmid_ds info = {};
-	struct sembuf sb = {};
-	char request[IO_BUF_SIZE];
-	ml_shm_workspace* workspace = NULL;
-
-	// get shm segment, get semaphore
-	if ((workspace = ml_workspace_retrieve()) == NULL)
-	{
-		printf("ML_PROXY: Failed to obtain a sharing workspace, aborting...\n");
-		goto CLEANUP;
-	}
-	//printf("using workspace shmkey %ld semkey %ld\n", workspace->shmkey, workspace->semkey);
-
-	if ((shmid = shmget(workspace->shmkey, 0, 0)) == ERROR)
-	{
-		perror("ML_PROXY: Fialed to retrieve memory");
-		goto CLEANUP;
-	}
-	if ((shmaddr = shmat(shmid, NULL, 0)) == ((void*)ERROR))
-	{
-		printf("ML_PROXY: Failed to attach shm segment %d, aborting...\n", errno);
-		goto CLEANUP;
-	}
-	shmctl(shmid, IPC_STAT, &info);
-
-	if ((semid = semget(workspace->semkey, 0, 0)) == ERROR)
-	{
-		perror("ML_PROXY: Failed to retrieve semaphore");
-		goto CLEANUP;
-	}
-	if (semctl(semid, 0, SETVAL, 1) == (ERROR))
-	{
-		perror("semctl");
-		goto CLEANUP;
-	}
-
-	sb.sem_num = 0;
-	sb.sem_flg = 0;
-	ml_shm_block* block = (ml_shm_block*)shmaddr;
-	block->header.done = 0;
-	block->header.size = 0;
-
-	// send request through socket
-	assert(sizeof(int) == sizeof(key_t));
-	if ((strlen("SHM . . .\r\n") + sizeof(int) + sizeof(int)
-			+ client_status->uri_len) > IO_BUF_SIZE)
-	{
-		printf("ML_PROXY: Failed to create request, aborting... %d\n", errno);
-		goto CLEANUP;
-	}
-	sprintf(request, "SHM %.*s %d %d\r\n", client_status->uri_len, client_status->uri,
-			(int)workspace->shmkey, (int)workspace->semkey);
-	if (send(hServer, request, strlen(request), 0) == (ERROR))
-	{
-		printf("ML_PROXy: Failed to send request to remote server, aborting...\n");
-		goto CLEANUP;
-	}
-	shutdown(hServer, SHUT_WR);
-
-	// shuttle response back to client
-	while(!block->header.done || block->header.size > 0)
-	{
-		sb.sem_op = -1;
-		if (semop(semid, &sb, 1) == ERROR)
-		{
-			perror("SEM: Error in acquiring lock");
-			goto CLEANUP;
-		}
-		/// CRITICAL ///
-
-		size_t count = 0;
-		while(count < block->header.size)
-		{
-			int bytes = write(hClient, block->data + count, block->header.size - count);
-			if (bytes == ERROR) break;
-			count += bytes;
-		}
-		block->header.size = 0;
-
-		/// END CRITICAL ///
-		sb.sem_op = 1;
-		if (semop(semid, &sb, 1) == ERROR)
-		{
-			perror("SEM: Error in releasing lock");
-			goto CLEANUP;
-		}
-	}
-
-CLEANUP:
-	shutdown(hClient, SHUT_WR);
-	if (shmaddr != ((void*)ERROR))
-	{
-		if (shmdt(shmaddr) == (ERROR)) printf("SHM ERROR on detatch: %d\n", errno);
-	}
-	if (workspace != NULL) ml_workspace_return(workspace);
 }

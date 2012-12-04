@@ -1,6 +1,6 @@
-// Michael Landes
-// GaTech : GOS : Project 2
-///////////////////////////
+/// Michael Landes
+/// GaTech : GOS : Project 3
+/// \\\///\\\///\\\///\\\///
 #include "globals.h"
 
 #include "proxy.h"
@@ -18,7 +18,6 @@
 
 #include "worker.h"
 #include "safeq.h"
-#include "workspace.h"
 
 #define INIT_ERROR		-2
 #define RUN_ERROR		-3
@@ -29,24 +28,22 @@ static const unsigned int BACKLOG = 30;
 
 static unsigned short int p_port;
 static unsigned int p_workers;
-static int p_sharedMode;
 static int p_socket;
 static struct sockaddr_in p_address;
 static pthread_t* p_workerPool;
 static int* p_workerArgs;
-static in_addr_t local_address;
 
 /// PRIVATE INTERFACE ///
-static int initialize(unsigned short int port, unsigned int workers, int shared);
+static int initialize(unsigned short int port, unsigned int workers);
 static int run(void);
 static void teardown(void);
 
 /// PUBLIC INTERFACE ///
-int ml_proxy(unsigned short int port, unsigned int workers, int shared)
+int ml_proxy(unsigned short int port, unsigned int workers)
 {
 	int result;
 
-	result = initialize(port, workers, shared);
+	result = initialize(port, workers);
 	switch(result)
 	{
 		case (SUCCESS):
@@ -76,50 +73,15 @@ void ml_proxy_shutdown()
 	TERMINATE = 1;
 }
 
-int useSharedMode(in_addr_t client_addr, int hServer)
-{
-	char buffer[20];
-
-	// are we supposed to share?
-	if (!p_sharedMode) return 0;
-
-	// are we on the same machine?
-	if (local_address && local_address != client_addr) return 0;
-
-	// are we compatible?
-	write(hServer, "MOKONZI EST\r\n", 13);
-	read(hServer, buffer, sizeof(buffer));
-	if (strncmp(buffer, "NAZALI\r\n", 8) == 0)
-		return 1;
-
-	return 0;
-}
-
 /// IMPLEMENTATAION ///
-static int initialize(unsigned short int port, unsigned int workers, int shared)
+static int initialize(unsigned short int port, unsigned int workers)
 {
 	int i;
-	struct utsname myname;
 
 	printf("PROXY SERVER INITIALIZING [ml_proxy]\n");
 
 	// setup the port
 	p_port = ((port == 0 || port > MAX_PORT) ? DEFAULT_PROXY_PORT : port);
-
-	// setup shared mode and find local address
-	p_sharedMode = (shared ? 1 : 0);
-	local_address = 0;
-	if (uname(&myname) != (ERROR))
-	{
-		struct addrinfo* result;
-		struct sockaddr_in* address;
-		if (getaddrinfo(myname.nodename, NULL, NULL, &result) != (ERROR))
-		{
-			address = (struct sockaddr_in*)result->ai_addr;
-			local_address = address->sin_addr.s_addr;
-		}
-		freeaddrinfo(result);
-	}
 
 	// setup the socket
 	p_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -153,13 +115,6 @@ static int initialize(unsigned short int port, unsigned int workers, int shared)
 		return (INIT_ERROR);
 	}
 
-	// turn on the workspace manager
-	if (ml_workspace_initialize())
-	{
-		printf("INIT: Workspace manager failed to initialize...\n");
-		return (INIT_ERROR);
-	}
-
 	// setup the workers
 	p_workers = ((workers == 0 || workers > MAX_WORKERS)? DEFAULT_PROXY_WORKERS : workers);
 	p_workerPool = (pthread_t*) malloc (p_workers * sizeof(pthread_t));
@@ -188,8 +143,6 @@ static int run(void)
 	printf("PROXY SERVER RUNNING: [%d] workers\n", p_workers);
 	printf("\tHost.......................%s\n", inet_ntoa(p_address.sin_addr));
 	printf("\tPort.......................%d\n", ntohs(p_address.sin_port));
-	printf("\tSharing Enhanced Mode......");
-	(p_sharedMode ? printf("ON\n") : printf("OFF\n"));
 
 	while(!TERMINATE)
 	{
@@ -205,7 +158,6 @@ static int run(void)
 static void teardown(void)
 {
 	int i;
-	//int rc;
 	void* status;
 
 	printf("PROXY SERVER TEARDOWN...\n");
@@ -214,12 +166,10 @@ static void teardown(void)
 	for (i = 0; i < p_workers; ++i) ml_safeq_put(0);
 	for (i = 0; i < p_workers; ++i)
 	{
-		//rc = pthread_join(p_workerPool[i], &status);
 		pthread_join(p_workerPool[i], &status);
 	}
 
 	ml_safeq_teardown();
-	ml_workspace_teardown();
 
 	free(p_workerPool);
 	free(p_workerArgs);
