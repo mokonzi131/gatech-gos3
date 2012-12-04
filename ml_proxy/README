@@ -1,10 +1,10 @@
-Project: ml_proxy
+Project 3: ml_proxy
 
-	A simple proxy server. In the basic form, the proxy will simply forward absolute HTTP requests to the real server
-		and return the result to the client/requestor.
-	By setting a flag, advanced mode can be enabled. In this case, the proxy server will determine if a request is
-		addressed to a locally hosted ml_server. If so, it will use shared memory to return the result, rather than
-		the typical TCP stack.
+	A slightly more advanced proxy server. This proxy server does the basic work of forwarding an absolute HTTP request
+		and returning the page served from the server with one exception. All JPEG imaged will be thinned.
+	Thinned means that the image size will be shrunk before being returned. All incoming .jpg requests are forwarded
+		via RPC calls to processes that download the image, and shrink it before returning it to the proxy to be
+		returned to the client.
 
 Author: Michael Landes
 
@@ -23,8 +23,7 @@ To Run:
 
 	./bin/proxy
 
-usage: ./bin/proxy [-p port] [-w workers] [-s]
+usage: ./bin/proxy [-p port] [-w workers]
 
 	[-p port] : valid (1-65535) port on which to listen (default is 50080)
 	[-w workers] : a reasonable (1-50) number of worker threads to use (default is 5)
-	[-s] : enable sharing mode (efficient proxy server)
