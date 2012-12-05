@@ -172,6 +172,8 @@ static void processJPG(int hClient, char* buffer, RequestStatus* client_status)
 	}
 
 	// return the resource to client
+	shutdown(hClient, SHUT_WR);
+
 	free(img_buffer);
 }
 
