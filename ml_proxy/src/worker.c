@@ -22,12 +22,13 @@
 
 #include "safeq.h"
 #include "http.h"
+#include "rpc.h"
 
 /// PRIVATE INTERFACE ///
 static void processConnection(int hClient, char* buffer);
 static void processProxyRequest(int hClient, char* buffer, RequestStatus* client_status);
+static void processJPG(int hClient, char* buffer, RequestStatus* client_status);
 static void proxySocket(int hClient, int hServer, char* buffer, RequestStatus* client_status);
-static void proxyJPG(int hClient, int hServer, char* buffer, RequestStatus* client_status);
 
 /// PUBLIC INTERFACE ///
 void* ml_worker(void* argument)
@@ -93,8 +94,15 @@ static void processConnection(int hClient, char* buffer)
 		return;
 	}
 
-	// handle a proxy GET request
-	processProxyRequest(hClient, buffer, &client_status);
+	// handle a proxy GET request or a JPEG RPC request if optimization is turned on
+	if (OPTIMIZE && ml_http_isJpeg(client_status.uri, client_status.uri_len))
+	{
+		processJPG(hClient, buffer, &client_status);
+	}
+	else
+	{
+		processProxyRequest(hClient, buffer, &client_status);
+	}
 }
 
 static void processProxyRequest(int hClient, char* buffer, RequestStatus* client_status)
@@ -143,24 +151,28 @@ static void processProxyRequest(int hClient, char* buffer, RequestStatus* client
 		goto cleanup;
 	}
 
-	// perform appropriate proxy task
-	if (OPTIMIZE && ml_http_isJpeg(client_status->uri, client_status->uri_len))
-	{
-		proxyJPG(hClient, hServer, buffer, client_status);
-	}
-	else
-	{
-		proxySocket(hClient, hServer, buffer, client_status);
-	}
+	proxySocket(hClient, hServer, buffer, client_status);
 
 cleanup:
 	freeaddrinfo(result);
 	close(hServer);
 }
 
-static void proxyJPG(int hClient, int hServer, char* buffer, RequestStatus* client_status)
+static void processJPG(int hClient, char* buffer, RequestStatus* client_status)
 {
-	printf("%.*s:%d\t\t%.*s\n", client_status->host_len, client_status->host, client_status->port, client_status->uri_len, client_status->uri);
+	char* img_buffer = NULL;
+	size_t img_size = 0;
+
+	// get the resource (shrunken jpeg)
+	ml_rpc_getImage(client_status, &img_buffer, &img_size);
+	if (img_buffer == NULL)
+	{
+		printf("Failed to retrieve JPEG for compression\n");
+		return;
+	}
+
+	// return the resource to client
+	free(img_buffer);
 }
 
 static void proxySocket(int hClient, int hServer, char* buffer, RequestStatus* client_status)

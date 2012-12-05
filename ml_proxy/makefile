@@ -6,6 +6,7 @@ OBJ = obj/main.o \
 		obj/safeq.o \
 		obj/worker.o \
 		obj/http.o \
+		obj/rpc.o
 
 OPTIONS = -g -Wall -pthread
 #DEBUG = -g
@@ -21,6 +22,8 @@ obj/worker.o : src/worker.c
 	gcc $(OPTIONS) -c src/worker.c -o obj/worker.o
 obj/http.o : src/http.c
 	gcc $(OPTIONS) -c src/http.c -o obj/http.o
+obj/rpc.o : src/rpc.c
+	gcc $(OPTIONS) -c src/rpc.c -o obj/rpc.o
 
 # EXECUTABLE RULES #
 $(EXE) : $(OBJ)

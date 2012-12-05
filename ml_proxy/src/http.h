@@ -1,5 +1,5 @@
 /// Michael Landes
-/// GaTech : GOS : Project 3r
+/// GaTech : GOS : Project 3
 /// \\\///\\\///\\\///\\\///
 
 #include <stdbool.h>
