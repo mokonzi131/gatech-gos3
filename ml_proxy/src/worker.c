@@ -161,7 +161,7 @@ cleanup:
 static void processJPG(int hClient, char* buffer, RequestStatus* client_status)
 {
 	char* img_buffer = NULL;
-	size_t img_size = 0;
+	int img_size = 0;
 
 	// get the resource (shrunken jpeg)
 	ml_rpc_getImage(client_status, &img_buffer, &img_size);

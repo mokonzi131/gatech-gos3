@@ -27,7 +27,7 @@ obj/rpc.o : src/rpc.c
 
 # EXECUTABLE RULES #
 $(EXE) : $(OBJ)
-	gcc -pthread $(OBJ) -o $(EXE)
+	gcc -pthread $(OBJ) -o $(EXE) jpeg-6b/lowres.o jpeg-6b/lowres-write.o jpeg-6b/libjpeg.a
 
 # MAKE TARGETS #
 bin : $(EXE)

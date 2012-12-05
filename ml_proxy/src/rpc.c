@@ -13,7 +13,7 @@
 #include <unistd.h>
 //#include <sys/stat.h>
 //#include <sys/types.h>
-//#include "jpeg-6b/lowres.h"
+#include "../jpeg-6b/lowres.h"
 
 //#include <unistd.h>
 #include <sys/types.h>
@@ -28,7 +28,7 @@
 //#include <sys/ipc.h>
 //#include <sys/sem.h>
 //#include <assert.h>
-int ml_rpc_getImage(RequestStatus* status, char** img_buffer, size_t* img_length)
+int ml_rpc_getImage(RequestStatus* status, char** img_buffer, int* img_length)
 {
 	printf("%.*s:%d\t\t%.*s\n", status->host_len, status->host, status->port, status->uri_len, status->uri);
 
@@ -136,18 +136,19 @@ int ml_rpc_getImage(RequestStatus* status, char** img_buffer, size_t* img_length
 	if (img_buffer == NULL) goto cleanup;
 
 	//if (change_res_JPEG_F(hServer, img_buffer, img_length) == 0) goto cleanup;
-
-
-//	printf("***** LEN = %d *****\n", image_length);
-	//  print response
-//	while((bytes = read(hServer, request, IO_BUF_SIZE)) != 0)
-//	{
-//		if (bytes == (ERROR)) break;
-//		printf("%.*s", bytes, request);
-//	}
-//	printf("*****\n");
+	FILE* input = fdopen(hServer,"r");
+	if (input == NULL) goto cleanup;
+	if (change_res_JPEG_F (input, img_buffer, img_length) == 0)
+	{
+		printf("Failed to acquire image!\n");
+	}
+	else
+	{
+		printf("Changed image (%ld) into image (%d)\n", image_length, *img_length);
+	}
 
 cleanup:
+	//if (input != NULL) fclose(input);
 	freeaddrinfo(result);
 	close(hServer);
 

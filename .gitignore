@@ -2,4 +2,5 @@
 *.layout
 */bin/*
 */obj/*
+*.o
 

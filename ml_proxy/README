@@ -11,6 +11,12 @@ Author: Michael Landes
 	This code is for CS 8803 (GOS) GaTech Fall 2012
 	There are no copywrights, no usage restrictions, and no guarentees :)
 
+JPEG Library:
+
+	This code uses the lowres code provided and the jpeg library. Before doing anything else, change directory into the
+		./jpeg-6b/ directory, and run "make clean" -- "make" and "gcc -c lowres.c lowres-write.c"
+	This is essential so that the rest of the code can compile and run correctly.
+
 To Build:
 
 	./make bin
