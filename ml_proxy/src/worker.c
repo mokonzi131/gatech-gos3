@@ -27,6 +27,7 @@
 static void processConnection(int hClient, char* buffer);
 static void processProxyRequest(int hClient, char* buffer, RequestStatus* client_status);
 static void proxySocket(int hClient, int hServer, char* buffer, RequestStatus* client_status);
+static void proxyJPG(int hClient, int hServer, char* buffer, RequestStatus* client_status);
 
 /// PUBLIC INTERFACE ///
 void* ml_worker(void* argument)
@@ -70,7 +71,6 @@ static void processConnection(int hClient, char* buffer)
 		ml_http_sendProxyError(hClient, "ML_PROXY: Timing out after waiting for data...");
 		return;
 	}
-	//printf("%d chars = [%.*s]\n", count, count, buffer);
 
 	// parse client header, validate
 	ml_http_parseStatus(&client_status, buffer, count);
@@ -144,12 +144,23 @@ static void processProxyRequest(int hClient, char* buffer, RequestStatus* client
 	}
 
 	// perform appropriate proxy task
-	printf("%.*s:%d\t\t%.*s\n", client_status->host_len, client_status->host, client_status->port, client_status->uri_len, client_status->uri);
-	proxySocket(hClient, hServer, buffer, client_status);
+	if (OPTIMIZE && ml_http_isJpeg(client_status->uri, client_status->uri_len))
+	{
+		proxyJPG(hClient, hServer, buffer, client_status);
+	}
+	else
+	{
+		proxySocket(hClient, hServer, buffer, client_status);
+	}
 
 cleanup:
 	freeaddrinfo(result);
 	close(hServer);
+}
+
+static void proxyJPG(int hClient, int hServer, char* buffer, RequestStatus* client_status)
+{
+	printf("%.*s:%d\t\t%.*s\n", client_status->host_len, client_status->host, client_status->port, client_status->uri_len, client_status->uri);
 }
 
 static void proxySocket(int hClient, int hServer, char* buffer, RequestStatus* client_status)

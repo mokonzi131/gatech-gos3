@@ -10,13 +10,14 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 /// DATA ///
 static const char* R_ALERT = "<html> \n <head><title>ALERT</title></head> \n <body> %s </body> \n </html>\n";
-//
+
 /// PRIVATE INTERFACE ///
 void toLower(char*, int);
-//
+
 /// PUBLIC INTERFACE ///
 void ml_http_parseStatus(RequestStatus* request, char* input, int count)
 {
@@ -82,7 +83,23 @@ void ml_http_parseStatus(RequestStatus* request, char* input, int count)
 	// NOTE ignored for this project
 }
 
-/// IMPLEMENTATION ///
+bool ml_http_isJpeg(const char* resource, int length)
+{
+	const char* location = (resource + length) - 1;
+
+	// find last '/' character
+	while (location > resource && *location != '/') --location;
+
+	// find following '.' character
+	while (location - resource < length - 3 && *location != '.') ++location;
+
+
+	if (*location == '.' && *(location+1) == 'j' && *(location+2) == 'p' && *(location+3) == 'g')
+		return true;
+
+	return false;
+}
+
 void ml_http_sendProxyError(int hSocket, const char* message)
 {
 	char header[256];
@@ -98,6 +115,7 @@ void ml_http_sendProxyError(int hSocket, const char* message)
 	write(hSocket, content, strlen(content)+1);
 }
 
+/// IMPLEMENTATION ///
 void toLower(char* string, int length)
 {
 	int i;

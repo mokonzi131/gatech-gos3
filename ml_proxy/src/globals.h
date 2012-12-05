@@ -20,5 +20,6 @@
 
 /// PROXY.C DEFINED GLOBAL ACCESS ///
 extern int TERMINATE;
+extern int OPTIMIZE;
 
 #endif
