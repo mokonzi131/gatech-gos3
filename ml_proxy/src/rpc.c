@@ -7,27 +7,18 @@
 
 #include <stdio.h>
 #include <fcntl.h>
-
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-//#include <sys/stat.h>
-//#include <sys/types.h>
-#include "../jpeg-6b/lowres.h"
-
-//#include <unistd.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <arpa/inet.h>
-//#include <string.h>
-//#include <stdlib.h>
-//#include <errno.h>
-//#include <sys/shm.h>
-//#include <sys/ipc.h>
-//#include <sys/sem.h>
-//#include <assert.h>
+
+#include "../jpeg-6b/lowres.h"
+
 int ml_rpc_getImage(RequestStatus* status, char** img_buffer, int* img_length)
 {
 	printf("%.*s:%d\t\t%.*s\n", status->host_len, status->host, status->port, status->uri_len, status->uri);
@@ -134,21 +125,17 @@ int ml_rpc_getImage(RequestStatus* status, char** img_buffer, int* img_length)
 	// compress the image, return the buffer /// char** img_buffer size_t* img_length
 	*img_buffer = (char*) malloc (sizeof(char) * image_length);
 	if (img_buffer == NULL) goto cleanup;
+	memset(*img_buffer, 0, sizeof(img_buffer));
 
-	//if (change_res_JPEG_F(hServer, img_buffer, img_length) == 0) goto cleanup;
 	FILE* input = fdopen(hServer,"r");
 	if (input == NULL) goto cleanup;
 	if (change_res_JPEG_F (input, img_buffer, img_length) == 0)
 	{
 		printf("Failed to acquire image!\n");
 	}
-	else
-	{
-		printf("Changed image (%ld) into image (%d)\n", image_length, *img_length);
-	}
 
 cleanup:
-	//if (input != NULL) fclose(input);
+
 	freeaddrinfo(result);
 	close(hServer);
 

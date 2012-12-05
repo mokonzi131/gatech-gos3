@@ -163,6 +163,7 @@ static void processJPG(int hClient, char* buffer, RequestStatus* client_status)
 	char* img_buffer = NULL;
 	int img_size = 0;
 
+	/// \\\ RPC CALL /// \\\
 	// get the resource (shrunken jpeg)
 	ml_rpc_getImage(client_status, &img_buffer, &img_size);
 	if (img_buffer == NULL)
@@ -170,10 +171,21 @@ static void processJPG(int hClient, char* buffer, RequestStatus* client_status)
 		printf("Failed to retrieve JPEG for compression\n");
 		return;
 	}
+	/// \\\ END RPC CALL /// \\\
 
 	// return the resource to client
-	shutdown(hClient, SHUT_WR);
+	char response[IO_BUF_SIZE + img_size];
 
+	sprintf(response, "HTTP/1.0 200 OK\r\n");
+	sprintf(response + strlen(response), "Content-Type: image/jpeg\r\n");
+	sprintf(response + strlen(response), "Content-Length: %d\r\n\r\n", img_size);
+	if (send(hClient, response, strlen(response), 0) == (ERROR))
+		printf("HEADER ERROR\n");
+
+	if (send(hClient, img_buffer, img_size, 0) == (ERROR))
+		printf("BODY ERROR\n");
+
+	shutdown(hClient, SHUT_WR);
 	free(img_buffer);
 }
 
