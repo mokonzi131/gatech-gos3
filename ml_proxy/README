@@ -17,6 +17,11 @@ JPEG Library:
 		./jpeg-6b/ directory, and run "make clean" -- "make" and "gcc -c lowres.c lowres-write.c"
 	This is essential so that the rest of the code can compile and run correctly.
 
+RPCGEN:
+
+	If the rpc files aren't present (or in anycase just to be safe) the second thing you should do is run "rpcgen -C src/mlrpc.x"
+		from within the source "src/" directory.
+
 To Build:
 
 	./make bin
@@ -28,6 +33,8 @@ Other Make Commands:
 To Run:
 
 	./bin/proxy
+	./bin/rpcserver
+	For the rpc server, make sure the portmapper is running (portmap or rpcbind) and you may need to run the service as an admin to get permissions right.
 
 usage: ./bin/proxy [-p port] [-w workers]
 

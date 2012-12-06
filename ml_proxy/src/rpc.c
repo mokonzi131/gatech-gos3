@@ -1,6 +1,7 @@
 /// Michael Landes
 /// GaTech : GOS : Project 3
 /// \\\///\\\///\\\///\\\///
+#include "mlrpc.h"
 #include "globals.h"
 
 #include "rpc.h"
@@ -18,6 +19,16 @@
 #include <arpa/inet.h>
 
 #include "../jpeg-6b/lowres.h"
+
+
+square_out* squareproc_1_svc(square_in* imp, struct svc_req* rqstp)
+{
+	static square_out out;
+
+	out.real = imp->arg1 * imp->arg1;
+	return (&out);
+}
+
 
 int ml_rpc_getImage(RequestStatus* status, char** img_buffer, int* img_length)
 {

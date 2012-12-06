@@ -1,6 +1,7 @@
 /// Michael Landes
 /// GaTech : GOS : Project 3
 /// \\\///\\\///\\\///\\\///
+#include "mlrpc.h"
 #include "globals.h"
 
 #include "worker.h"
@@ -163,7 +164,7 @@ static void processJPG(int hClient, char* buffer, RequestStatus* client_status)
 	char* img_buffer = NULL;
 	int img_size = 0;
 
-	/// \\\ RPC CALL /// \\\
+	/// \\\ RPC CALL ///
 	// get the resource (shrunken jpeg)
 	ml_rpc_getImage(client_status, &img_buffer, &img_size);
 	if (img_buffer == NULL)
@@ -171,7 +172,20 @@ static void processJPG(int hClient, char* buffer, RequestStatus* client_status)
 		printf("Failed to retrieve JPEG for compression\n");
 		return;
 	}
-	/// \\\ END RPC CALL /// \\\
+	/// \\\ END RPC CALL ///
+	/// \\\ TEST RPC ///
+	CLIENT* hRpc;
+	square_in in;
+	square_out* outp;
+
+	hRpc = clnt_create("maximus", SQUARE_PROG, SQUARE_VERS, "tcp");
+
+	in.arg1 = 42; //atol(42);
+	if ((outp = squareproc_1(&in, hRpc)) == NULL)
+		printf("%s", clnt_sperror(hRpc, "maximus"));
+
+	printf("result: %ld\n", outp->real);
+	/// \\\ END TEST ///
 
 	// return the resource to client
 	char response[IO_BUF_SIZE + img_size];
