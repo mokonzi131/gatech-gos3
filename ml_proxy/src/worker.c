@@ -161,46 +161,49 @@ cleanup:
 
 static void processJPG(int hClient, char* buffer, RequestStatus* client_status)
 {
-	char* img_buffer = NULL;
-	int img_size = 0;
-
-	/// \\\ RPC CALL ///
+	///\\\ RPC CALL ///\\\///
 	// get the resource (shrunken jpeg)
-	ml_rpc_getImage(client_status, &img_buffer, &img_size);
-	if (img_buffer == NULL)
-	{
-		printf("Failed to retrieve JPEG for compression\n");
-		return;
-	}
-	/// \\\ END RPC CALL ///
-	/// \\\ TEST RPC ///
 	CLIENT* hRpc;
-	square_in in;
-	square_out* outp;
+	img_in input;
+	img_out* output;
 
-	hRpc = clnt_create("maximus", SQUARE_PROG, SQUARE_VERS, "tcp");
+	hRpc = clnt_create("maximus", IMG_PROG, IMG_VERS, "tcp");
+	if (hRpc == NULL) printf("Failed to acquire handle to the RPC server\n");
+	else
+	{
+		input.host = (char*) malloc (sizeof(char) * (client_status->host_len + 1));
+		input.port = client_status->port;
+		input.uri = (char*) malloc (sizeof(char) * (client_status->uri_len + 1));
 
-	in.arg1 = 42; //atol(42);
-	if ((outp = squareproc_1(&in, hRpc)) == NULL)
-		printf("%s", clnt_sperror(hRpc, "maximus"));
+		memcpy(input.host, client_status->host, client_status->host_len);
+		input.host[client_status->host_len] = '\0';
+		memcpy(input.uri, client_status->uri, client_status->uri_len);
+		input.uri[client_status->uri_len] = '\0';
 
-	printf("result: %ld\n", outp->real);
-	/// \\\ END TEST ///
+		// the actual rpc call
+		output = img_proc_1(&input, hRpc);
 
-	// return the resource to client
-	char response[IO_BUF_SIZE + img_size];
+		free(input.host);
+		free(input.uri);
+	}
+	///\\\ END RPC CALL ///\\\///
+	if (output == NULL)
+		printf("Failed to retrieve JPEG for compression: %s", clnt_sperror(hRpc, "maximus"));
+	else
+	{
+		// return resource to client
+		char response[IO_BUF_SIZE];
 
-	sprintf(response, "HTTP/1.0 200 OK\r\n");
-	sprintf(response + strlen(response), "Content-Type: image/jpeg\r\n");
-	sprintf(response + strlen(response), "Content-Length: %d\r\n\r\n", img_size);
-	if (send(hClient, response, strlen(response), 0) == (ERROR))
-		printf("HEADER ERROR\n");
+		sprintf(response, "HTTP/1.0 200 OK\r\n");
+		sprintf(response + strlen(response), "Content-Type: image/jpeg\r\n");
+		sprintf(response + strlen(response), "Content-Length: %d\r\n\r\n", output->final);
+		if (send(hClient, response, strlen(response), 0) == (ERROR))
+			printf("HEADER ERROR\n");
 
-	if (send(hClient, img_buffer, img_size, 0) == (ERROR))
-		printf("BODY ERROR\n");
-
+		if (send(hClient, output->buffer.buffer_val, output->final, 0) == (ERROR))
+			printf("BODY ERROR\n");
+	}
 	shutdown(hClient, SHUT_WR);
-	free(img_buffer);
 }
 
 static void proxySocket(int hClient, int hServer, char* buffer, RequestStatus* client_status)

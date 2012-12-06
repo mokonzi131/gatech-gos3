@@ -20,24 +20,11 @@
 
 #include "../jpeg-6b/lowres.h"
 
-
-square_out* squareproc_1_svc(square_in* imp, struct svc_req* rqstp)
+img_out* img_proc_1_svc(img_in* input, struct svc_req* rqstp)
 {
-	static square_out out;
+	static img_out output;
 
-	out.real = imp->arg1 * imp->arg1;
-	return (&out);
-}
-
-
-int ml_rpc_getImage(RequestStatus* status, char** img_buffer, int* img_length)
-{
-	printf("%.*s:%d\t\t%.*s\n", status->host_len, status->host, status->port, status->uri_len, status->uri);
-
-	// connect to remote server
-	char clientName[124];
 	char clientPort[8];
-
 	int hServer;
 	struct addrinfo hints;
 	struct addrinfo* result;
@@ -46,11 +33,14 @@ int ml_rpc_getImage(RequestStatus* status, char** img_buffer, int* img_length)
 	tv.tv_sec = TIMEOUT_SEC;
 	tv.tv_usec = 0;
 
-	// get string references to the host and the port
-	strncpy(clientName, status->host, status->host_len);
-	clientName[status->host_len] = '\0';
+	char request[IO_BUF_SIZE];
+	int bytes = 0;
+
+	printf("%s:%d\t\t%s\n", input->host, input->port, input->uri);
+
+	// get string references to the port
 	memset(clientPort, 0, sizeof(clientPort));
-	sprintf(clientPort, "%d", status->port);
+	sprintf(clientPort, "%d", input->port);
 
 	// find the remote server
 	memset(&hints, 0, sizeof(struct addrinfo));
@@ -58,7 +48,7 @@ int ml_rpc_getImage(RequestStatus* status, char** img_buffer, int* img_length)
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
 
-	if (getaddrinfo(clientName, clientPort, &hints, &result) != (SUCCESS))
+	if (getaddrinfo(input->host, clientPort, &hints, &result) != (SUCCESS))
 	{
 		printf("ML_PROXY: Could not resolve server's IP address, aborting...\n");
 		goto cleanup;
@@ -79,17 +69,13 @@ int ml_rpc_getImage(RequestStatus* status, char** img_buffer, int* img_length)
 		goto cleanup;
 	}
 
-	// send http request for image
-	char request[IO_BUF_SIZE];
-	int bytes = 0;
-
 	// construct the request
-	if (strlen("GET . HTTP/1.0\r\n") + status->uri_len + strlen("Host: .:.\r\n")
-		+ status->host_len + strlen("User-Agent: ML_PROXY/1.0\r\n\r\n") > IO_BUF_SIZE)
+	if (strlen("GET . HTTP/1.0\r\n") + strlen(input->uri) + strlen("Host: .:.\r\n")
+		+ strlen(input->host) + strlen("User-Agent: ML_PROXY/1.0\r\n\r\n") > IO_BUF_SIZE)
 		goto cleanup;
-	sprintf(request, "GET %.*s HTTP/1.0\r\n", status->uri_len, status->uri);
-	sprintf(request + strlen(request), "Host: %.*s:%d\r\n",
-			status->host_len, status->host, status->port);
+	sprintf(request, "GET %s HTTP/1.0\r\n", input->uri);
+	sprintf(request + strlen(request), "Host: %s:%d\r\n",
+			input->host, input->port);
 	sprintf(request + strlen(request), "User-Agent: ML_PROXY/1.0\r\n\r\n");
 
 	// send request to server
@@ -98,7 +84,6 @@ int ml_rpc_getImage(RequestStatus* status, char** img_buffer, int* img_length)
 		printf("ML_PROXY: Failed to send request to remote server, aborting...\n");
 		goto cleanup;
 	}
-
 	shutdown(hServer, SHUT_WR);
 
 	// read response and extract length
@@ -133,22 +118,18 @@ int ml_rpc_getImage(RequestStatus* status, char** img_buffer, int* img_length)
 	if (location - request >= bytes || image_length == 0) goto cleanup;
 	bytes = read(hServer, request, location - request);
 
-	// compress the image, return the buffer /// char** img_buffer size_t* img_length
-	*img_buffer = (char*) malloc (sizeof(char) * image_length);
-	if (img_buffer == NULL) goto cleanup;
-	memset(*img_buffer, 0, sizeof(img_buffer));
+	// set output
+	output.buffer.buffer_len = image_length;
+	output.buffer.buffer_val = (char*) malloc (sizeof(char) * image_length);
+	if (output.buffer.buffer_val == NULL) goto cleanup;
+	memset(output.buffer.buffer_val, 0, sizeof(output.buffer.buffer_val));
 
-	FILE* input = fdopen(hServer,"r");
-	if (input == NULL) goto cleanup;
-	if (change_res_JPEG_F (input, img_buffer, img_length) == 0)
-	{
-		printf("Failed to acquire image!\n");
-	}
+	FILE* temp = fdopen(hServer, "r");
+	if (temp == NULL) goto cleanup;
+	if (change_res_JPEG_F(temp, &(output.buffer.buffer_val), &(output.final)) == 0)
 
 cleanup:
-
 	freeaddrinfo(result);
 	close(hServer);
-
-	return (SUCCESS);
+	return (&output);
 }

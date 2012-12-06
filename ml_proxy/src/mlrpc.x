@@ -1,14 +1,16 @@
-struct square_in {
-	long	arg1;
+struct img_in {
+	string	host<>;
+	int		port;
+	string	uri<>;
 };
 
-struct square_out {
-	long	real;
+struct img_out {
+	opaque buffer<>;
+	int final;
 };
 
-program SQUARE_PROG {
-	version SQUARE_VERS {
-		square_out SQUAREPROC(square_in) = 1;
+program IMG_PROG {
+	version IMG_VERS {
+		img_out IMG_PROC(img_in) = 1;
 	} = 1;
 } = 0x22222222;
-
