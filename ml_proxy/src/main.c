@@ -16,6 +16,7 @@
 static unsigned short int port = 0;
 static unsigned int workers = 0;
 int OPTIMIZE = 0;
+char* SERVICE = NULL;
 
 /// PRIVATE INTERFACE ///
 static int setArgs(int, char**);
@@ -35,10 +36,10 @@ int main(int argc, char** argv)
 	result = setArgs(argc, argv);
 	if (result != SUCCESS)
 	{
-		printf("usage: %s [-p port] [-w workers] [-o]\n", argv[0]);
+		printf("usage: %s [-p port] [-w workers] [-o service]\n", argv[0]);
 		printf("  [-p port] : valid (1-%d) port on which to listen. (default = %d)\n", MAX_PORT, DEFAULT_PROXY_PORT);
 		printf("  [-w workers] : a reasonable (1-50) number of worker threads to use. (default = %d)\n", DEFAULT_PROXY_WORKERS);
-		printf("  [-o] : optimize - turn on usage of rpc to shrink jpeg images\n");
+		printf("  [-o service] : optimize - turn on usage of rpc to shrink jpeg images, service is the name of the computer where the rpc service is running\n");
 		printf("\n");
 		return result;
 	}
@@ -75,7 +76,7 @@ static int setArgs(int argc, char** argv)
 	int test;
 
 	// set command line inputs, reject a mal-formed input
-	while((check = getopt(argc, argv, "p:w:o")) != ERROR)
+	while((check = getopt(argc, argv, "p:w:o:")) != ERROR)
 	{
 		switch(check)
 		{
@@ -93,6 +94,7 @@ static int setArgs(int argc, char** argv)
 				break;
 			case 'o':
 				OPTIMIZE = 1;
+				SERVICE = optarg;
 				break;
 			case '?':
 			default:

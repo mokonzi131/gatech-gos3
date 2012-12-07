@@ -21,5 +21,6 @@
 /// PROXY.C DEFINED GLOBAL ACCESS ///
 extern int TERMINATE;
 extern int OPTIMIZE;
+extern char* SERVICE;
 
 #endif

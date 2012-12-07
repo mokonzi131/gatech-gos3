@@ -19,7 +19,7 @@ JPEG Library:
 
 RPCGEN:
 
-	If the rpc files aren't present (or in anycase just to be safe) the second thing you should do is run "rpcgen -CAM src/mlrpc.x"
+	If the rpc files aren't present (or in anycase just to be safe) the second thing you should do is run "rpcgen -CM src/mlrpc.x"
 		from within the source "src/" directory.
 
 To Build:
@@ -34,9 +34,10 @@ To Run:
 
 	./bin/proxy
 	./bin/rpcserver
-	For the rpc server, make sure the portmapper is running (portmap or rpcbind) and you may need to run the service as an admin to get permissions right.
+	For the rpc server, make sure the portmapper is running (portmap or rpcbind) and you may need to run the service as sudo to get permissions right.
 
-usage: ./bin/proxy [-p port] [-w workers]
+usage: ./bin/proxy [-p port] [-w workers] [-o service]
 
 	[-p port] : valid (1-65535) port on which to listen (default is 50080)
 	[-w workers] : a reasonable (1-50) number of worker threads to use (default is 5)
+	[-o service] : enable image optimization, will compress all JPEG images to smaller size, service is the name of the computer where the rpc server is running

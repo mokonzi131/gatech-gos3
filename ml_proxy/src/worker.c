@@ -172,7 +172,7 @@ static void processJPG(int hClient, char* buffer, RequestStatus* client_status)
 	input.uri = NULL;
 	output.buffer.buffer_val = NULL;
 
-	hRpc = clnt_create("maximus", IMG_PROG, IMG_VERS, "tcp");
+	hRpc = clnt_create(SERVICE, IMG_PROG, IMG_VERS, "tcp");
 	if (hRpc == NULL) printf("Failed to acquire handle to the RPC server\n");
 	else
 	{
@@ -211,7 +211,7 @@ static void processJPG(int hClient, char* buffer, RequestStatus* client_status)
 		free(output.buffer.buffer_val);
 	}
 	shutdown(hClient, SHUT_WR);
-	if (hRpc != NULL) hRpc->cl_ops->cl_destroy(hRpc);
+	if (hRpc != NULL) clnt_destroy(hRpc);
 }
 
 static void proxySocket(int hClient, int hServer, char* buffer, RequestStatus* client_status)
