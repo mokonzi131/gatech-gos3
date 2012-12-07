@@ -27,10 +27,10 @@ obj/rpc.o : src/rpc.c
 
 # EXECUTABLE RULES #
 $(EXE) : $(OBJ)
-	gcc -c src/mlrpc_clnt.c -o obj/mlrpc_clnt.o
-	gcc -c src/mlrpc_xdr.c -o obj/mlrpc_xdr.o
-	gcc -c src/mlrpc_svc.c -o obj/mlrpc_svc.o
-	gcc -o bin/rpcserver obj/mlrpc_xdr.o obj/mlrpc_svc.o obj/rpc.o jpeg-6b/lowres.o jpeg-6b/lowres-write.o jpeg-6b/libjpeg.a
+	gcc $(OPTIONS) -c src/mlrpc_clnt.c -o obj/mlrpc_clnt.o
+	gcc $(OPTIONS) -c src/mlrpc_xdr.c -o obj/mlrpc_xdr.o
+	gcc $(OPTIONS) -c src/mlrpc_svc.c -o obj/mlrpc_svc.o
+	gcc -pthread -o bin/rpcserver obj/mlrpc_xdr.o obj/mlrpc_svc.o obj/rpc.o jpeg-6b/lowres.o jpeg-6b/lowres-write.o jpeg-6b/libjpeg.a
 	gcc -pthread $(OBJ) -o $(EXE) jpeg-6b/lowres.o jpeg-6b/lowres-write.o jpeg-6b/libjpeg.a obj/mlrpc_clnt.o obj/mlrpc_xdr.o
 
 # MAKE TARGETS #

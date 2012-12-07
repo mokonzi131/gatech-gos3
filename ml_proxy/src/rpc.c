@@ -20,10 +20,8 @@
 
 #include "../jpeg-6b/lowres.h"
 
-img_out* img_proc_1_svc(img_in* input, struct svc_req* rqstp)
+int img_proc_2_svc(img_in* input, img_out* output, struct svc_req* rqstp)
 {
-	static img_out output;
-
 	char clientPort[8];
 	int hServer;
 	struct addrinfo hints;
@@ -119,17 +117,23 @@ img_out* img_proc_1_svc(img_in* input, struct svc_req* rqstp)
 	bytes = read(hServer, request, location - request);
 
 	// set output
-	output.buffer.buffer_len = image_length;
-	output.buffer.buffer_val = (char*) malloc (sizeof(char) * image_length);
-	if (output.buffer.buffer_val == NULL) goto cleanup;
-	memset(output.buffer.buffer_val, 0, sizeof(output.buffer.buffer_val));
+	output->buffer.buffer_len = image_length;
+	output->buffer.buffer_val = (char*) malloc (sizeof(char) * image_length);
+	if (output->buffer.buffer_val == NULL) goto cleanup;
+	memset(output->buffer.buffer_val, 0, sizeof(output->buffer.buffer_val));
 
 	FILE* temp = fdopen(hServer, "r");
 	if (temp == NULL) goto cleanup;
-	if (change_res_JPEG_F(temp, &(output.buffer.buffer_val), &(output.final)) == 0)
+	change_res_JPEG_F(temp, &(output->buffer.buffer_val), &(output->final));
 
 cleanup:
 	freeaddrinfo(result);
 	close(hServer);
-	return (&output);
+	return (TRUE);
+}
+
+int img_prog_2_freeresult(SVCXPRT* transp, xdrproc_t xdr_result, caddr_t result)
+{
+	xdr_free(xdr_result, result);
+	return 1;
 }

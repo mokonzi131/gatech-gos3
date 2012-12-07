@@ -12,5 +12,5 @@ struct img_out {
 program IMG_PROG {
 	version IMG_VERS {
 		img_out IMG_PROC(img_in) = 1;
-	} = 1;
+	} = 2;
 } = 0x22222222;

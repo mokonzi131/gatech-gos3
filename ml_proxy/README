@@ -19,7 +19,7 @@ JPEG Library:
 
 RPCGEN:
 
-	If the rpc files aren't present (or in anycase just to be safe) the second thing you should do is run "rpcgen -C src/mlrpc.x"
+	If the rpc files aren't present (or in anycase just to be safe) the second thing you should do is run "rpcgen -CAM src/mlrpc.x"
 		from within the source "src/" directory.
 
 To Build:
