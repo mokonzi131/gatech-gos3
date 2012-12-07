@@ -134,6 +134,7 @@ cleanup:
 
 int img_prog_2_freeresult(SVCXPRT* transp, xdrproc_t xdr_result, caddr_t result)
 {
+	free(result->buffer.buffer_val);
 	xdr_free(xdr_result, result);
 	return 1;
 }
